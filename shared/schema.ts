@@ -25,6 +25,10 @@ export const fetchResponseSchema = z.object({
 
 export type FetchResponse = z.infer<typeof fetchResponseSchema>;
 
+// Badge schema - must be defined before userSchema
+export const badgeSchema = z.enum(['star', 'shield', 'goat', 'crown', 'fire']);
+export type Badge = z.infer<typeof badgeSchema>;
+
 // User schema
 export const userSchema = z.object({
   id: z.string(),
@@ -63,9 +67,6 @@ export const aiChatRequestSchema = z.object({
 // Chat system schemas
 export const chatRoomSchema = z.enum(['global', 'mod', 'admin']);
 export type ChatRoom = z.infer<typeof chatRoomSchema>;
-
-export const badgeSchema = z.enum(['star', 'shield', 'goat', 'crown', 'fire']);
-export type Badge = z.infer<typeof badgeSchema>;
 
 export const chatMessageSchema = z.object({
   id: z.string(),

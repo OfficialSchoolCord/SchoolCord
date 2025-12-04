@@ -1,9 +1,75 @@
 
 import type { User, QuickApp, BlockedWebsite, HistoryItem, UserRole, ChatMessage, ChatRoom } from "@shared/schema";
+import fs from 'fs';
+import path from 'path';
 
-// In-memory storage (replace with actual database in production)
+const DATA_DIR = path.join(process.cwd(), 'data');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const CHAT_FILE = path.join(DATA_DIR, 'chat.json');
+
+// Ensure data directory exists
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+// Load persisted data
+function loadUsers(): Map<string, User & { password: string }> {
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
+      return new Map(Object.entries(data));
+    }
+  } catch (error) {
+    console.error('Error loading users:', error);
+  }
+  return new Map();
+}
+
+function loadChatMessages(): Map<ChatRoom, ChatMessage[]> {
+  try {
+    if (fs.existsSync(CHAT_FILE)) {
+      const data = JSON.parse(fs.readFileSync(CHAT_FILE, 'utf-8'));
+      return new Map([
+        ['global', data.global || []],
+        ['mod', data.mod || []],
+        ['admin', data.admin || []],
+      ]);
+    }
+  } catch (error) {
+    console.error('Error loading chat messages:', error);
+  }
+  return new Map([
+    ['global', []],
+    ['mod', []],
+    ['admin', []],
+  ]);
+}
+
+function saveUsers() {
+  try {
+    const data = Object.fromEntries(storage.users.entries());
+    fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error('Error saving users:', error);
+  }
+}
+
+function saveChatMessages() {
+  try {
+    const data = {
+      global: storage.chatMessages.get('global') || [],
+      mod: storage.chatMessages.get('mod') || [],
+      admin: storage.chatMessages.get('admin') || [],
+    };
+    fs.writeFileSync(CHAT_FILE, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error('Error saving chat messages:', error);
+  }
+}
+
+// In-memory storage with persistence
 export const storage = {
-  users: new Map<string, User & { password: string }>(),
+  users: loadUsers(),
   quickApps: new Map<string, QuickApp[]>(),
   blockedWebsites: new Map<string, BlockedWebsite>(),
   history: new Map<string, HistoryItem[]>(),
@@ -11,11 +77,7 @@ export const storage = {
   pageViews: 0,
   bannedUsers: new Set<string>(),
   tempBans: new Map<string, number>(), // userId -> unban timestamp
-  chatMessages: new Map<ChatRoom, ChatMessage[]>([
-    ['global', []],
-    ['mod', []],
-    ['admin', []],
-  ]),
+  chatMessages: loadChatMessages(),
 };
 
 // Initialize admin account
@@ -67,6 +129,7 @@ export function createUser(username: string, password: string, email?: string): 
     badges: [],
   };
   storage.users.set(id, user);
+  saveUsers();
   return user;
 }
 
@@ -76,6 +139,7 @@ export function updateUser(userId: string, updates: Partial<User>) {
   
   const updated = { ...user, ...updates };
   storage.users.set(userId, updated);
+  saveUsers();
   return updated;
 }
 
@@ -162,6 +226,7 @@ export function setUserRole(userId: string, role: UserRole): User | null {
   user.role = role;
   user.isAdmin = role === 'admin';
   storage.users.set(userId, user);
+  saveUsers();
   
   const { password, ...userWithoutPassword } = user;
   return userWithoutPassword;
@@ -173,6 +238,7 @@ export function changeUserPassword(userId: string, newPassword: string): User | 
   
   user.password = newPassword;
   storage.users.set(userId, user);
+  saveUsers();
   
   const { password, ...userWithoutPassword } = user;
   return userWithoutPassword;
@@ -205,6 +271,7 @@ export function addChatMessage(room: ChatRoom, message: ChatMessage) {
     messages.shift();
   }
   storage.chatMessages.set(room, messages);
+  saveChatMessages();
   return message;
 }
 
@@ -278,6 +345,7 @@ export function addXP(userId: string, amount: number): { newLevel: number; oldLe
   }
   
   storage.users.set(userId, user);
+  saveUsers();
   return { newLevel, oldLevel, newXP };
 }
 
