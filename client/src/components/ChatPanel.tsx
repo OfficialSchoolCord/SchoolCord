@@ -237,9 +237,9 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
           onComplete={() => setLevelUpData(null)} 
         />
       )}
-      <div className="flex flex-col h-full max-h-full overflow-hidden">
-      <Tabs value={activeRoom} onValueChange={(v) => setActiveRoom(v as ChatRoom)} className="flex-1 flex flex-col min-h-0">
-        <div className="p-4 pb-0">
+      <div className="flex flex-col h-full">
+      <Tabs value={activeRoom} onValueChange={(v) => setActiveRoom(v as ChatRoom)} className="flex flex-col h-full">
+        <div className="p-4 pb-2 flex-shrink-0">
           <TabsList className="grid w-full grid-cols-3 bg-white/5">
             <TabsTrigger value="global" className="data-[state=active]:bg-primary/20">
               <Users className="w-4 h-4 mr-2" />
@@ -256,20 +256,22 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
           </TabsList>
         </div>
 
-        <TabsContent value="global" className="flex-1 mt-0 overflow-auto p-4" onScroll={handleScroll}>
-          {renderMessages()}
-          <div ref={messagesEndRef} />
-        </TabsContent>
+        <div className="flex-1 overflow-hidden">
+          <TabsContent value="global" className="h-full overflow-auto p-4 m-0" onScroll={handleScroll}>
+            {renderMessages()}
+            <div ref={messagesEndRef} />
+          </TabsContent>
 
-        <TabsContent value="mod" className="flex-1 mt-0 overflow-auto p-4" onScroll={handleScroll}>
-          {renderMessages()}
-          <div ref={messagesEndRef} />
-        </TabsContent>
+          <TabsContent value="mod" className="h-full overflow-auto p-4 m-0" onScroll={handleScroll}>
+            {renderMessages()}
+            <div ref={messagesEndRef} />
+          </TabsContent>
 
-        <TabsContent value="admin" className="flex-1 mt-0 overflow-auto p-4" onScroll={handleScroll}>
-          {renderMessages()}
-          <div ref={messagesEndRef} />
-        </TabsContent>
+          <TabsContent value="admin" className="h-full overflow-auto p-4 m-0" onScroll={handleScroll}>
+            {renderMessages()}
+            <div ref={messagesEndRef} />
+          </TabsContent>
+        </div>
       </Tabs>
 
       <div className="p-4 pt-3 border-t border-white/10 space-y-2 flex-shrink-0">
