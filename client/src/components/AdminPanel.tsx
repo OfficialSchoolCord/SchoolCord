@@ -27,6 +27,8 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
   const [blockedSites, setBlockedSites] = useState<any[]>([]);
   const [newBlockUrl, setNewBlockUrl] = useState('');
   const [blockReason, setBlockReason] = useState('');
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState('');
 
   const isAdmin = currentUserRole === 'admin';
 
@@ -105,6 +107,29 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
       loadData();
     } catch (error) {
       console.error('Failed to set role:', error);
+    }
+  };
+
+  const handleChangePassword = async (userId: string) => {
+    if (!newPassword.trim() || newPassword.length < 6) {
+      alert('Password must be at least 6 characters');
+      return;
+    }
+    try {
+      await fetch('/api/admin/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': sessionId,
+        },
+        body: JSON.stringify({ userId, newPassword }),
+      });
+      setEditingUserId(null);
+      setNewPassword('');
+      alert('Password changed successfully');
+    } catch (error) {
+      console.error('Failed to change password:', error);
+      alert('Failed to change password');
     }
   };
 
@@ -243,32 +268,63 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {isAdmin && user.role !== 'admin' && (
-                      <Select
-                        value={user.role || 'user'}
-                        onValueChange={(value) => handleSetRole(user.id, value as UserRole)}
-                      >
-                        <SelectTrigger className="w-24 h-8 bg-white/5 border-white/10 text-white text-xs" data-testid={`select-role-${user.id}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="user">User</SelectItem>
-                          <SelectItem value="mod">Mod</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                    {user.role !== 'admin' && (
-                      <Button
-                        size="sm"
-                        variant={user.isBanned ? 'outline' : 'destructive'}
-                        onClick={() => user.isBanned ? handleUnbanUser(user.id) : handleBanUser(user.id)}
-                        data-testid={`button-ban-${user.id}`}
-                      >
-                        <Ban className="w-4 h-4 mr-1" />
-                        {user.isBanned ? 'Unban' : 'Ban'}
-                      </Button>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      {isAdmin && user.role !== 'admin' && (
+                        <Select
+                          value={user.role || 'user'}
+                          onValueChange={(value) => handleSetRole(user.id, value as UserRole)}
+                        >
+                          <SelectTrigger className="w-24 h-8 bg-white/5 border-white/10 text-white text-xs" data-testid={`select-role-${user.id}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="user">User</SelectItem>
+                            <SelectItem value="mod">Mod</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {user.role !== 'admin' && (
+                        <Button
+                          size="sm"
+                          variant={user.isBanned ? 'outline' : 'destructive'}
+                          onClick={() => user.isBanned ? handleUnbanUser(user.id) : handleBanUser(user.id)}
+                          data-testid={`button-ban-${user.id}`}
+                        >
+                          <Ban className="w-4 h-4 mr-1" />
+                          {user.isBanned ? 'Unban' : 'Ban'}
+                        </Button>
+                      )}
+                      {isAdmin && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditingUserId(editingUserId === user.id ? null : user.id)}
+                          data-testid={`button-change-password-${user.id}`}
+                        >
+                          Change Password
+                        </Button>
+                      )}
+                    </div>
+                    {isAdmin && editingUserId === user.id && (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="New password (min 6 chars)"
+                          className="bg-white/5 border-white/10 text-white text-xs h-8"
+                          data-testid={`input-new-password-${user.id}`}
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => handleChangePassword(user.id)}
+                          data-testid={`button-save-password-${user.id}`}
+                        >
+                          Save
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>

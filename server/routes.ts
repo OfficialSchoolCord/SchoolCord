@@ -450,6 +450,26 @@ export async function registerRoutes(
     }
   });
 
+  // Password management (admin only)
+  app.post('/api/admin/change-password', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { userId, newPassword } = req.body;
+      
+      if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      }
+      
+      const user = storage.changeUserPassword(userId, newPassword);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      return res.json({ success: true });
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to change password' });
+    }
+  });
+
   // AI Chat endpoint
   app.post('/api/ai/chat', requireAuth, async (req: any, res) => {
     try {

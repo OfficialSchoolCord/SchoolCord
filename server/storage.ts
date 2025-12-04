@@ -154,6 +154,17 @@ export function setUserRole(userId: string, role: UserRole): User | null {
   return userWithoutPassword;
 }
 
+export function changeUserPassword(userId: string, newPassword: string): User | null {
+  const user = storage.users.get(userId);
+  if (!user) return null;
+  
+  user.password = newPassword;
+  storage.users.set(userId, user);
+  
+  const { password, ...userWithoutPassword } = user;
+  return userWithoutPassword;
+}
+
 export function hasModeratorAccess(userId: string): boolean {
   const user = storage.users.get(userId);
   if (!user) return false;
