@@ -85,16 +85,20 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
   });
 
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
-    if (shouldAutoScroll) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (shouldAutoScroll && scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
     }
   }, [messagesData?.messages?.length, shouldAutoScroll]);
   
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const element = e.currentTarget;
-    const isAtBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 100;
+    const isAtBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 50;
     setShouldAutoScroll(isAtBottom);
   };
 
@@ -255,29 +259,29 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
           </TabsList>
         </div>
 
-        <TabsContent value="global" className="flex-1 flex flex-col mt-0">
-          <ScrollArea className="flex-1 p-4" onScrollCapture={handleScroll}>
+        <TabsContent value="global" className="flex-1 flex flex-col mt-0 min-h-0">
+          <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-4" onScroll={handleScroll}>
             {renderMessages()}
             <div ref={messagesEndRef} />
-          </ScrollArea>
+          </div>
         </TabsContent>
 
-        <TabsContent value="mod" className="flex-1 flex flex-col mt-0">
-          <ScrollArea className="flex-1 p-4" onScrollCapture={handleScroll}>
+        <TabsContent value="mod" className="flex-1 flex flex-col mt-0 min-h-0">
+          <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-4" onScroll={handleScroll}>
             {renderMessages()}
             <div ref={messagesEndRef} />
-          </ScrollArea>
+          </div>
         </TabsContent>
 
-        <TabsContent value="admin" className="flex-1 flex flex-col mt-0">
-          <ScrollArea className="flex-1 p-4" onScrollCapture={handleScroll}>
+        <TabsContent value="admin" className="flex-1 flex flex-col mt-0 min-h-0">
+          <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-4" onScroll={handleScroll}>
             {renderMessages()}
             <div ref={messagesEndRef} />
-          </ScrollArea>
+          </div>
         </TabsContent>
       </Tabs>
 
-      <div className="p-4 pt-3 border-t border-white/10 space-y-2">
+      <div className="p-4 pt-3 border-t border-white/10 space-y-2 flex-shrink-0">
         {(showImageInput || showLinkInput) && (
           <div className="space-y-2">
             {showImageInput && (
