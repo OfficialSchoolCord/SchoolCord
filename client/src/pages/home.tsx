@@ -332,6 +332,7 @@ export default function Home() {
                 }}
                 onSignOut={handleSignOut}
                 onUpdateProfile={handleUpdateProfile}
+                sessionId={sessionId}
               />
             </div>
           </div>

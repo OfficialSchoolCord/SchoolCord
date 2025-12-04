@@ -223,4 +223,44 @@ export const XP_REWARDS = {
   search: 5,
   imageShare: 10,
   linkShare: 5,
+  questComplete: 50,
 } as const;
+
+// Quest system schemas
+export const questTypeSchema = z.enum(['daily_chat', 'daily_search', 'daily_browse', 'daily_login', 'daily_share']);
+export type QuestType = z.infer<typeof questTypeSchema>;
+
+export const questSchema = z.object({
+  id: z.string(),
+  type: questTypeSchema,
+  title: z.string(),
+  description: z.string(),
+  xpReward: z.number(),
+  requirement: z.number(),
+  progress: z.number().default(0),
+  completed: z.boolean().default(false),
+});
+
+export type Quest = z.infer<typeof questSchema>;
+
+export const userQuestDataSchema = z.object({
+  userId: z.string(),
+  quests: z.array(questSchema),
+  lastResetTime: z.string(),
+  dailyQuestsCompleted: z.number().default(0),
+});
+
+export type UserQuestData = z.infer<typeof userQuestDataSchema>;
+
+// Quest constants
+export const DAILY_QUEST_LIMIT = 5000;
+export const QUEST_RESET_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+
+// Default quests that reset every 6 hours
+export const DEFAULT_QUESTS: Omit<Quest, 'id' | 'progress' | 'completed'>[] = [
+  { type: 'daily_chat', title: 'Chat Champion', description: 'Send 5 messages in chat', xpReward: 50, requirement: 5 },
+  { type: 'daily_search', title: 'Web Explorer', description: 'Search 3 websites', xpReward: 75, requirement: 3 },
+  { type: 'daily_browse', title: 'Page Turner', description: 'Visit 5 different pages', xpReward: 60, requirement: 5 },
+  { type: 'daily_login', title: 'Daily Check-in', description: 'Log in today', xpReward: 25, requirement: 1 },
+  { type: 'daily_share', title: 'Sharing is Caring', description: 'Share a link or image', xpReward: 100, requirement: 1 },
+];

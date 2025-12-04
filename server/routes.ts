@@ -339,6 +339,9 @@ export async function registerRoutes(
       const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       storage.storage.sessions.set(sessionId, user.id);
       storage.updateUser(user.id, { lastLogin: new Date().toISOString() });
+      
+      // Complete daily login quest
+      storage.completeLoginQuest(user.id);
 
       const { password: _, ...userWithoutPassword } = user;
       return res.json({ user: userWithoutPassword, sessionId });
@@ -491,6 +494,42 @@ export async function registerRoutes(
     }
   });
 
+  // Quest endpoints
+  app.get('/api/quests', requireAuth, async (req: any, res) => {
+    try {
+      const questData = storage.getUserQuests(req.userId);
+      const resetTimeRemaining = storage.getQuestResetTimeRemaining(req.userId);
+      return res.json({ 
+        quests: questData.quests, 
+        dailyQuestsCompleted: questData.dailyQuestsCompleted,
+        lastResetTime: questData.lastResetTime,
+        resetTimeRemaining,
+      });
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to get quests' });
+    }
+  });
+
+  // Admin quest reset endpoints
+  app.post('/api/admin/reset-user-quests', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.body;
+      const questData = storage.resetUserQuests(userId);
+      return res.json({ success: true, quests: questData });
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to reset user quests' });
+    }
+  });
+
+  app.post('/api/admin/reset-all-quests', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      storage.resetAllUserQuests();
+      return res.json({ success: true });
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to reset all quests' });
+    }
+  });
+
   // Leaderboard endpoint
   app.get('/api/leaderboard', async (req, res) => {
     const leaderboard = storage.getLeaderboard(50);
@@ -580,6 +619,12 @@ export async function registerRoutes(
           if (linkUrl) xpGain += 5;
           
           levelUpData = storage.addXP(userId, xpGain);
+          
+          // Update quest progress
+          storage.updateQuestProgress(userId, 'daily_chat', 1);
+          if (imageUrl || linkUrl) {
+            storage.updateQuestProgress(userId, 'daily_share', 1);
+          }
         }
       } else {
         // Guests cannot send links or images
@@ -772,6 +817,10 @@ export async function registerRoutes(
           });
           // Award XP for searching
           levelUpData = storage.addXP(userId, 5);
+          
+          // Update quest progress
+          storage.updateQuestProgress(userId, 'daily_search', 1);
+          storage.updateQuestProgress(userId, 'daily_browse', 1);
         }
       }
       

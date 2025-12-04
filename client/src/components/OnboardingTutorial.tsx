@@ -90,7 +90,9 @@ export function OnboardingTutorial({ onComplete }: OnboardingTutorialProps) {
         <div
           className="absolute inset-0 opacity-20"
           style={{
-            background: `linear-gradient(135deg, ${step.color.split(' ')[0].replace('from-', '')} 0%, ${step.color.split(' ')[2].replace('to-', '')} 100%)`,
+            background: step.color 
+              ? `linear-gradient(135deg, ${step.color.split(' ')[0]?.replace('from-', '') || 'purple-500'} 0%, ${step.color.split(' ')[1]?.replace('to-', '') || 'pink-500'} 100%)`
+              : 'linear-gradient(135deg, purple-500 0%, pink-500 100%)',
             animation: 'pulse 3s ease-in-out infinite',
           }}
         />

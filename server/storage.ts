@@ -1,11 +1,13 @@
 
-import type { User, QuickApp, BlockedWebsite, HistoryItem, UserRole, ChatMessage, ChatRoom } from "@shared/schema";
+import type { User, QuickApp, BlockedWebsite, HistoryItem, UserRole, ChatMessage, ChatRoom, Quest, UserQuestData } from "@shared/schema";
+import { DEFAULT_QUESTS, QUEST_RESET_INTERVAL_MS, DAILY_QUEST_LIMIT } from "@shared/schema";
 import fs from 'fs';
 import path from 'path';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const CHAT_FILE = path.join(DATA_DIR, 'chat.json');
+const QUESTS_FILE = path.join(DATA_DIR, 'quests.json');
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -67,6 +69,27 @@ function saveChatMessages() {
   }
 }
 
+function loadQuests(): Map<string, UserQuestData> {
+  try {
+    if (fs.existsSync(QUESTS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(QUESTS_FILE, 'utf-8'));
+      return new Map(Object.entries(data));
+    }
+  } catch (error) {
+    console.error('Error loading quests:', error);
+  }
+  return new Map();
+}
+
+function saveQuests() {
+  try {
+    const data = Object.fromEntries(storage.quests.entries());
+    fs.writeFileSync(QUESTS_FILE, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error('Error saving quests:', error);
+  }
+}
+
 // In-memory storage with persistence
 export const storage = {
   users: loadUsers(),
@@ -78,6 +101,7 @@ export const storage = {
   bannedUsers: new Set<string>(),
   tempBans: new Map<string, number>(), // userId -> unban timestamp
   chatMessages: loadChatMessages(),
+  quests: loadQuests(),
 };
 
 // Initialize admin account
@@ -428,6 +452,124 @@ export function checkAndUnbanUsers() {
     if (now >= unbanTime) {
       storage.tempBans.delete(userId);
       storage.bannedUsers.delete(userId);
+    }
+  }
+}
+
+// Quest system functions
+function generateUserQuests(): Quest[] {
+  return DEFAULT_QUESTS.map((quest, index) => ({
+    ...quest,
+    id: `quest-${Date.now()}-${index}`,
+    progress: 0,
+    completed: false,
+  }));
+}
+
+function shouldResetQuests(lastResetTime: string): boolean {
+  const lastReset = new Date(lastResetTime).getTime();
+  const now = Date.now();
+  return now - lastReset >= QUEST_RESET_INTERVAL_MS;
+}
+
+export function getUserQuests(userId: string): UserQuestData {
+  let questData = storage.quests.get(userId);
+  
+  // Initialize quests for new users
+  if (!questData) {
+    questData = {
+      userId,
+      quests: generateUserQuests(),
+      lastResetTime: new Date().toISOString(),
+      dailyQuestsCompleted: 0,
+    };
+    storage.quests.set(userId, questData);
+    saveQuests();
+  }
+  
+  // Check if quests need to be reset (6 hour timer)
+  if (shouldResetQuests(questData.lastResetTime)) {
+    questData = {
+      userId,
+      quests: generateUserQuests(),
+      lastResetTime: new Date().toISOString(),
+      dailyQuestsCompleted: 0,
+    };
+    storage.quests.set(userId, questData);
+    saveQuests();
+  }
+  
+  return questData;
+}
+
+export function getQuestResetTimeRemaining(userId: string): number {
+  const questData = storage.quests.get(userId);
+  if (!questData) return 0;
+  
+  const lastReset = new Date(questData.lastResetTime).getTime();
+  const nextReset = lastReset + QUEST_RESET_INTERVAL_MS;
+  const remaining = nextReset - Date.now();
+  
+  return Math.max(0, remaining);
+}
+
+export function updateQuestProgress(userId: string, questType: string, amount: number = 1): { questCompleted: boolean; xpAwarded: number; quest?: Quest } | null {
+  const questData = getUserQuests(userId);
+  
+  // Check daily limit
+  if (questData.dailyQuestsCompleted >= DAILY_QUEST_LIMIT) {
+    return { questCompleted: false, xpAwarded: 0 };
+  }
+  
+  const quest = questData.quests.find(q => q.type === questType && !q.completed);
+  if (!quest) return { questCompleted: false, xpAwarded: 0 };
+  
+  quest.progress = Math.min(quest.progress + amount, quest.requirement);
+  
+  let xpAwarded = 0;
+  let questCompleted = false;
+  
+  if (quest.progress >= quest.requirement && !quest.completed) {
+    quest.completed = true;
+    questCompleted = true;
+    xpAwarded = quest.xpReward;
+    questData.dailyQuestsCompleted++;
+    
+    // Award XP for completing quest
+    addXP(userId, xpAwarded);
+  }
+  
+  storage.quests.set(userId, questData);
+  saveQuests();
+  
+  return { questCompleted, xpAwarded, quest };
+}
+
+export function completeLoginQuest(userId: string): { questCompleted: boolean; xpAwarded: number } {
+  const result = updateQuestProgress(userId, 'daily_login', 1);
+  return result || { questCompleted: false, xpAwarded: 0 };
+}
+
+export function resetUserQuests(userId: string): UserQuestData {
+  const questData: UserQuestData = {
+    userId,
+    quests: generateUserQuests(),
+    lastResetTime: new Date().toISOString(),
+    dailyQuestsCompleted: 0,
+  };
+  storage.quests.set(userId, questData);
+  saveQuests();
+  return questData;
+}
+
+export function resetAllUserQuests(): void {
+  for (const userId of storage.quests.keys()) {
+    resetUserQuests(userId);
+  }
+  // Also reset for all users who haven't had quests yet
+  for (const user of storage.users.values()) {
+    if (!storage.quests.has(user.id)) {
+      resetUserQuests(user.id);
     }
   }
 }

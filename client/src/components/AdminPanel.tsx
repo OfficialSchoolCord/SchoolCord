@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Users, BarChart, Shield, Ban, Crown, UserCheck } from 'lucide-react';
+import { X, Users, BarChart, Shield, Ban, Crown, UserCheck, Target, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -21,7 +21,7 @@ interface AdminPanelProps {
 }
 
 export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'users' | 'blocked'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'users' | 'blocked' | 'quests'>('analytics');
   const [analytics, setAnalytics] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [blockedSites, setBlockedSites] = useState<any[]>([]);
@@ -31,6 +31,7 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
   const [newPassword, setNewPassword] = useState('');
   const [editingLevelUserId, setEditingLevelUserId] = useState<string | null>(null);
   const [newLevel, setNewLevel] = useState('');
+  const [resettingQuestUserId, setResettingQuestUserId] = useState<string | null>(null);
 
   const isAdmin = currentUserRole === 'admin';
 
@@ -46,7 +47,7 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
         });
         const data = await res.json();
         setAnalytics(data);
-      } else if (activeTab === 'users') {
+      } else if (activeTab === 'users' || activeTab === 'quests') {
         const res = await fetch('/api/admin/users', {
           headers: { 'x-session-id': sessionId },
         });
@@ -195,6 +196,45 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
     }
   };
 
+  const handleResetUserQuests = async (userId: string) => {
+    try {
+      setResettingQuestUserId(userId);
+      await fetch('/api/admin/reset-user-quests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': sessionId,
+        },
+        body: JSON.stringify({ userId }),
+      });
+      alert('User quests reset successfully');
+    } catch (error) {
+      console.error('Failed to reset user quests:', error);
+      alert('Failed to reset user quests');
+    } finally {
+      setResettingQuestUserId(null);
+    }
+  };
+
+  const handleResetAllQuests = async () => {
+    if (!confirm('Are you sure you want to reset quests for ALL users? This cannot be undone.')) {
+      return;
+    }
+    try {
+      await fetch('/api/admin/reset-all-quests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': sessionId,
+        },
+      });
+      alert('All user quests reset successfully');
+    } catch (error) {
+      console.error('Failed to reset all quests:', error);
+      alert('Failed to reset all quests');
+    }
+  };
+
   const getRoleBadge = (role: UserRole) => {
     switch (role) {
       case 'admin':
@@ -220,10 +260,10 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
         </div>
       </div>
 
-      <div className="flex border-b border-white/10">
+      <div className="flex border-b border-white/10 overflow-x-auto">
         <button
           onClick={() => setActiveTab('analytics')}
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
             activeTab === 'analytics'
               ? 'text-white border-b-2 border-primary'
               : 'text-white/60 hover:text-white'
@@ -235,7 +275,7 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
         </button>
         <button
           onClick={() => setActiveTab('users')}
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
             activeTab === 'users'
               ? 'text-white border-b-2 border-primary'
               : 'text-white/60 hover:text-white'
@@ -247,7 +287,7 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
         </button>
         <button
           onClick={() => setActiveTab('blocked')}
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
             activeTab === 'blocked'
               ? 'text-white border-b-2 border-primary'
               : 'text-white/60 hover:text-white'
@@ -255,8 +295,22 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
           data-testid="tab-blocked"
         >
           <Shield className="w-4 h-4 inline mr-2" />
-          Blocked Sites
+          Blocked
         </button>
+        {isAdmin && (
+          <button
+            onClick={() => setActiveTab('quests')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'quests'
+                ? 'text-white border-b-2 border-primary'
+                : 'text-white/60 hover:text-white'
+            }`}
+            data-testid="tab-quests"
+          >
+            <Target className="w-4 h-4 inline mr-2" />
+            Quests
+          </button>
+        )}
       </div>
 
       <ScrollArea className="flex-1">
@@ -299,7 +353,7 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
                     </div>
                   </div>
                   <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {isAdmin && user.role !== 'admin' && (
                         <Select
                           value={user.role || 'user'}
@@ -445,6 +499,65 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
                         Unblock
                       </Button>
                     )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'quests' && isAdmin && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-lg bg-gradient-to-r from-primary/20 to-purple-500/20 border border-primary/30">
+              <div className="flex items-center gap-3 mb-3">
+                <Target className="w-6 h-6 text-primary" />
+                <div>
+                  <h3 className="text-white font-semibold">Quest Management</h3>
+                  <p className="text-sm text-white/60">Reset quests for all users or individual users</p>
+                </div>
+              </div>
+              <Button 
+                onClick={handleResetAllQuests}
+                variant="destructive"
+                className="w-full"
+                data-testid="button-reset-all-quests"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Reset All User Quests
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-white/70 text-sm font-medium">Reset Individual User Quests</h4>
+              {users.length === 0 ? (
+                <div className="text-center py-8 text-white/50">
+                  No users found
+                </div>
+              ) : (
+                users.map((user) => (
+                  <div
+                    key={user.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-white/5"
+                    data-testid={`quest-user-row-${user.id}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <p className="text-white font-medium">{user.username}</p>
+                        <Badge variant="outline" className="text-yellow-400 border-yellow-400/30 text-xs">
+                          Level {user.level || 1}
+                        </Badge>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleResetUserQuests(user.id)}
+                      disabled={resettingQuestUserId === user.id}
+                      data-testid={`button-reset-quest-${user.id}`}
+                    >
+                      <RefreshCw className={`w-4 h-4 mr-1 ${resettingQuestUserId === user.id ? 'animate-spin' : ''}`} />
+                      Reset Quests
+                    </Button>
                   </div>
                 ))
               )}
