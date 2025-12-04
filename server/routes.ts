@@ -471,6 +471,12 @@ export async function registerRoutes(
     }
   });
 
+  // Leaderboard endpoint
+  app.get('/api/leaderboard', async (req, res) => {
+    const leaderboard = storage.getLeaderboard(50);
+    return res.json({ leaderboard });
+  });
+
   // Chat endpoints
   app.get('/api/chat/:room', async (req: any, res) => {
     const room = req.params.room as ChatRoom;
@@ -496,13 +502,18 @@ export async function registerRoutes(
   app.post('/api/chat/:room', async (req: any, res) => {
     try {
       const room = req.params.room as ChatRoom;
-      const validation = sendChatMessageSchema.safeParse({ room, message: req.body.message });
+      const validation = sendChatMessageSchema.safeParse({ 
+        room, 
+        message: req.body.message,
+        imageUrl: req.body.imageUrl,
+        linkUrl: req.body.linkUrl,
+      });
       
       if (!validation.success) {
         return res.status(400).json({ error: 'Invalid message' });
       }
       
-      const { message } = validation.data;
+      const { message, imageUrl, linkUrl } = validation.data;
       const sessionId = req.headers['x-session-id'];
       const userId = sessionId ? storage.storage.sessions.get(sessionId) : undefined;
       
@@ -515,12 +526,45 @@ export async function registerRoutes(
       
       let username = 'Guest';
       let profilePicture: string | undefined;
+      let userLevel = 1;
+      let userBadge: string | undefined;
+      let levelUpData = null;
       
       if (userId) {
         const user = storage.getUser(userId);
         if (user) {
           username = user.username;
           profilePicture = user.profilePicture;
+          userLevel = user.level || 1;
+          userBadge = user.badges[user.badges.length - 1];
+          
+          // Check link permissions
+          if (linkUrl && !storage.canUserSendLinks(userId)) {
+            return res.status(403).json({ error: 'You must be level 5 or higher to send links' });
+          }
+          
+          // Check image permissions
+          if (imageUrl && !storage.canUserSendImages(userId)) {
+            return res.status(403).json({ error: 'You must be level 10 or higher to send images' });
+          }
+          
+          // Check for suspicious links and auto-ban
+          if (linkUrl && storage.isSuspiciousLink(linkUrl)) {
+            storage.tempBanUser(userId, 7 * 24 * 60 * 60 * 1000); // 7 days
+            return res.status(403).json({ error: 'Suspicious link detected. You have been banned for 7 days.' });
+          }
+          
+          // Award XP
+          let xpGain = 2; // Base chat message XP
+          if (imageUrl) xpGain += 10;
+          if (linkUrl) xpGain += 5;
+          
+          levelUpData = storage.addXP(userId, xpGain);
+        }
+      } else {
+        // Guests cannot send links or images
+        if (linkUrl || imageUrl) {
+          return res.status(403).json({ error: 'You must be signed in to send links or images' });
         }
       }
       
@@ -532,9 +576,13 @@ export async function registerRoutes(
         profilePicture,
         message,
         timestamp: new Date().toISOString(),
+        imageUrl,
+        linkUrl,
+        level: userLevel,
+        badge: userBadge,
       });
       
-      return res.json({ success: true, message: chatMessage });
+      return res.json({ success: true, message: chatMessage, levelUp: levelUpData });
     } catch (error) {
       return res.status(500).json({ error: 'Failed to send message' });
     }
@@ -692,6 +740,7 @@ export async function registerRoutes(
       // Track page view and add to history
       storage.incrementPageViews();
       const sessionId = req.headers['x-session-id'];
+      let levelUpData = null;
       if (sessionId && storage.storage.sessions.has(sessionId)) {
         const userId = storage.storage.sessions.get(sessionId);
         if (userId) {
@@ -701,6 +750,8 @@ export async function registerRoutes(
             visitedAt: new Date().toISOString(),
             userId,
           });
+          // Award XP for searching
+          levelUpData = storage.addXP(userId, 5);
         }
       }
       
@@ -752,6 +803,7 @@ export async function registerRoutes(
         title,
         content,
         isSearch: false,
+        levelUp: levelUpData,
       });
       
     } catch (error) {

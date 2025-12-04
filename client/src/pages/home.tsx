@@ -13,6 +13,8 @@ import { AdminPanel } from '@/components/AdminPanel';
 import { AIChatPanel } from '@/components/AIChatPanel';
 import { ChatPanel } from '@/components/ChatPanel';
 import { AuthModal } from '@/components/AuthModal';
+import { LevelUpNotification } from '@/components/LevelUpNotification';
+import { LeaderboardPanel } from '@/components/LeaderboardPanel';
 import { useToast } from '@/hooks/use-toast';
 import { useBrowserSettings } from '@/hooks/use-browser-settings';
 import type { NavItemId, HistoryItem, FetchResponse, UserRole } from '@shared/schema';
@@ -32,6 +34,7 @@ export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [levelUpData, setLevelUpData] = useState<any>(null);
   const { toast } = useToast();
   const { 
     privacyMode, 
@@ -142,7 +145,7 @@ export default function Home() {
       }
       return response.json();
     },
-    onSuccess: (data: FetchResponse) => {
+    onSuccess: (data: FetchResponse & { levelUp?: any }) => {
       if (data.success) {
         setPageContent(data.content || null);
         setPageTitle(data.title || '');
@@ -159,6 +162,11 @@ export default function Home() {
         };
         addToHistory(newHistoryItem);
         setVisitCount(prevCount => prevCount + 1);
+        
+        // Check for level up
+        if (data.levelUp && data.levelUp.newLevel > data.levelUp.oldLevel) {
+          setLevelUpData(data.levelUp);
+        }
       } else {
         setPageError(data.error || 'Failed to load page');
         setPageContent(null);
@@ -347,6 +355,14 @@ export default function Home() {
             </div>
           </div>
         );
+      case 'leaderboard':
+        return (
+          <div className="fixed inset-0 ml-16 flex items-center justify-center z-40 animate-fade-in" style={{ background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)' }}>
+            <div className="w-full max-w-md h-[80vh] border border-white/10 rounded-lg overflow-hidden" style={{ background: 'rgba(30, 20, 40, 0.95)', backdropFilter: 'blur(20px)' }}>
+              <LeaderboardPanel />
+            </div>
+          </div>
+        );
       default:
         return null;
     }
@@ -360,6 +376,13 @@ export default function Home() {
   return (
     <div className="min-h-screen overflow-hidden relative">
       <Starfield />
+      
+      {levelUpData && (
+        <LevelUpNotification 
+          newLevel={levelUpData.newLevel} 
+          onComplete={() => setLevelUpData(null)} 
+        />
+      )}
 
       <SidebarProvider 
         defaultOpen={false}

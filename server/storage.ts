@@ -10,6 +10,7 @@ export const storage = {
   sessions: new Map<string, string>(), // sessionId -> userId
   pageViews: 0,
   bannedUsers: new Set<string>(),
+  tempBans: new Map<string, number>(), // userId -> unban timestamp
   chatMessages: new Map<ChatRoom, ChatMessage[]>([
     ['global', []],
     ['mod', []],
@@ -30,6 +31,9 @@ storage.users.set(adminId, {
   googleAccountLinked: false,
   createdAt: new Date().toISOString(),
   lastLogin: undefined,
+  level: 67,
+  xp: 10000,
+  badges: ['crown'],
 });
 
 export function getUser(userId: string) {
@@ -58,6 +62,9 @@ export function createUser(username: string, password: string, email?: string): 
     googleAccountLinked: false,
     createdAt: new Date().toISOString(),
     lastLogin: undefined,
+    level: 1,
+    xp: 0,
+    badges: [],
   };
   storage.users.set(id, user);
   return user;
@@ -134,6 +141,7 @@ export function unbanUser(userId: string) {
 }
 
 export function isUserBanned(userId: string): boolean {
+  checkAndUnbanUsers(); // Auto-unban expired bans
   return storage.bannedUsers.has(userId);
 }
 
@@ -221,4 +229,115 @@ export function canAccessChatRoom(userId: string | undefined, room: ChatRoom): b
   }
   
   return false;
+}
+
+
+
+// XP and leveling functions
+export function calculateLevel(xp: number): number {
+  // Formula: level increases as XP grows exponentially
+  if (xp < 100) return 1;
+  if (xp < 300) return Math.floor(2 + (xp - 100) / 50);
+  if (xp < 1000) return Math.floor(5 + (xp - 300) / 70);
+  if (xp < 3000) return Math.floor(15 + (xp - 1000) / 100);
+  if (xp < 7500) return Math.floor(35 + (xp - 3000) / 150);
+  if (xp < 25000) return Math.floor(65 + (xp - 7500) / 250);
+  if (xp < 100000) return Math.floor(135 + (xp - 25000) / 500);
+  if (xp < 500000) return Math.floor(285 + (xp - 100000) / 1000);
+  
+  return Math.min(5000, Math.floor(685 + (xp - 500000) / 5000));
+}
+
+export function addXP(userId: string, amount: number): { newLevel: number; oldLevel: number; newXP: number } | null {
+  const user = storage.users.get(userId);
+  if (!user) return null;
+  
+  const oldLevel = user.level || 1;
+  const oldXP = user.xp || 0;
+  const newXP = oldXP + amount;
+  const newLevel = calculateLevel(newXP);
+  
+  user.xp = newXP;
+  user.level = newLevel;
+  
+  // Award badges based on level
+  if (newLevel >= 10 && !user.badges.includes('star')) {
+    user.badges.push('star');
+  }
+  if (newLevel >= 25 && !user.badges.includes('shield')) {
+    user.badges.push('shield');
+  }
+  if (newLevel >= 50 && !user.badges.includes('goat')) {
+    user.badges.push('goat');
+  }
+  if (newLevel >= 100 && !user.badges.includes('crown')) {
+    user.badges.push('crown');
+  }
+  if (newLevel >= 5000 && !user.badges.includes('fire')) {
+    user.badges.push('fire');
+  }
+  
+  storage.users.set(userId, user);
+  return { newLevel, oldLevel, newXP };
+}
+
+export function getLeaderboard(limit: number = 50) {
+  const users = Array.from(storage.users.values())
+    .map(user => ({
+      userId: user.id,
+      username: user.username,
+      profilePicture: user.profilePicture,
+      level: user.level || 1,
+      xp: user.xp || 0,
+      badge: user.badges[user.badges.length - 1], // Latest badge
+    }))
+    .sort((a, b) => b.level - a.level || b.xp - a.xp)
+    .slice(0, limit);
+  
+  return users;
+}
+
+export function canUserSendLinks(userId: string): boolean {
+  const user = storage.users.get(userId);
+  if (!user) return false;
+  return (user.level || 1) >= 5 || user.role === 'admin' || user.role === 'mod';
+}
+
+export function canUserSendImages(userId: string): boolean {
+  const user = storage.users.get(userId);
+  if (!user) return false;
+  return (user.level || 1) >= 10 || user.role === 'admin' || user.role === 'mod';
+}
+
+// Phishing/malicious link detection
+const SUSPICIOUS_PATTERNS = [
+  /grabify/i,
+  /iplogger/i,
+  /ip-grabber/i,
+  /2no\.co/i,
+  /bit\.ly\/[a-zA-Z0-9]{6,}/i, // Shortened links can be suspicious
+  /discord\.gift/i,
+  /steamcommunity-/i,
+  /stearn/i,
+  /discordapp-/i,
+];
+
+export function isSuspiciousLink(url: string): boolean {
+  return SUSPICIOUS_PATTERNS.some(pattern => pattern.test(url));
+}
+
+export function tempBanUser(userId: string, durationMs: number = 7 * 24 * 60 * 60 * 1000) {
+  const unbanTime = Date.now() + durationMs;
+  storage.tempBans.set(userId, unbanTime);
+  storage.bannedUsers.add(userId);
+}
+
+export function checkAndUnbanUsers() {
+  const now = Date.now();
+  for (const [userId, unbanTime] of storage.tempBans.entries()) {
+    if (now >= unbanTime) {
+      storage.tempBans.delete(userId);
+      storage.bannedUsers.delete(userId);
+    }
+  }
 }

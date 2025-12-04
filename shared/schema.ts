@@ -37,6 +37,9 @@ export const userSchema = z.object({
   googleEmail: z.string().optional(),
   createdAt: z.string(),
   lastLogin: z.string().optional(),
+  level: z.number().default(1),
+  xp: z.number().default(0),
+  badges: z.array(badgeSchema).default([]),
 });
 
 export type User = z.infer<typeof userSchema>;
@@ -49,7 +52,7 @@ export const aiMessageSchema = z.object({
 
 export type AIMessage = z.infer<typeof aiMessageSchema>;
 
-export type NavItemId = 'home' | 'search' | 'apps' | 'ai' | 'chat' | 'settings' | 'history' | 'profile' | 'admin';
+export type NavItemId = 'home' | 'search' | 'apps' | 'ai' | 'chat' | 'leaderboard' | 'settings' | 'history' | 'profile' | 'admin';
 
 // AI chat request schema
 export const aiChatRequestSchema = z.object({
@@ -61,6 +64,9 @@ export const aiChatRequestSchema = z.object({
 export const chatRoomSchema = z.enum(['global', 'mod', 'admin']);
 export type ChatRoom = z.infer<typeof chatRoomSchema>;
 
+export const badgeSchema = z.enum(['star', 'shield', 'goat', 'crown', 'fire']);
+export type Badge = z.infer<typeof badgeSchema>;
+
 export const chatMessageSchema = z.object({
   id: z.string(),
   room: chatRoomSchema,
@@ -69,6 +75,10 @@ export const chatMessageSchema = z.object({
   profilePicture: z.string().optional(),
   message: z.string(),
   timestamp: z.string(),
+  imageUrl: z.string().optional(),
+  linkUrl: z.string().optional(),
+  level: z.number().optional(),
+  badge: badgeSchema.optional(),
 });
 
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
@@ -76,6 +86,8 @@ export type ChatMessage = z.infer<typeof chatMessageSchema>;
 export const sendChatMessageSchema = z.object({
   room: chatRoomSchema,
   message: z.string().min(1).max(500),
+  imageUrl: z.string().url().optional(),
+  linkUrl: z.string().url().optional(),
 });
 
 export type AIChatRequest = z.infer<typeof aiChatRequestSchema>;
@@ -179,3 +191,35 @@ export const defaultQuickApps = [
   { id: 'youtube', name: 'YouTube', url: 'https://youtube.com', icon: 'Film', color: '#FF0000' },
   { id: 'spotify', name: 'Spotify', url: 'https://spotify.com', icon: 'Music', color: '#1DB954' },
 ];
+
+
+
+// Leaderboard entry
+export const leaderboardEntrySchema = z.object({
+  userId: z.string(),
+  username: z.string(),
+  profilePicture: z.string().optional(),
+  level: z.number(),
+  xp: z.number(),
+  badge: badgeSchema.optional(),
+});
+
+export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>;
+
+// Level perks and requirements
+export const LEVEL_PERKS = {
+  1: { name: 'Newcomer', xpRequired: 0, canSendLinks: false, canSendImages: false },
+  5: { name: 'Explorer', xpRequired: 100, canSendLinks: true, canSendImages: false },
+  10: { name: 'Adventurer', xpRequired: 300, canSendLinks: true, canSendImages: true, badge: 'star' as Badge },
+  25: { name: 'Veteran', xpRequired: 1000, canSendLinks: true, canSendImages: true, badge: 'shield' as Badge },
+  50: { name: 'Expert', xpRequired: 3000, canSendLinks: true, canSendImages: true, badge: 'goat' as Badge },
+  100: { name: 'Master', xpRequired: 7500, canSendLinks: true, canSendImages: true, badge: 'crown' as Badge },
+  5000: { name: 'Legend', xpRequired: 500000, canSendLinks: true, canSendImages: true, badge: 'fire' as Badge },
+} as const;
+
+export const XP_REWARDS = {
+  chatMessage: 2,
+  search: 5,
+  imageShare: 10,
+  linkShare: 5,
+} as const;

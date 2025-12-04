@@ -1,6 +1,9 @@
 
+import { LevelUpNotification } from './LevelUpNotification';
+
+
 import { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, Shield, Users, Loader2 } from 'lucide-react';
+import { Send, MessageSquare, Shield, Users, Loader2, Image as ImageIcon, Link as LinkIcon, Star, Crown, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -17,6 +20,11 @@ interface ChatPanelProps {
 export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
   const [activeRoom, setActiveRoom] = useState<ChatRoom>('global');
   const [inputValue, setInputValue] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [linkUrl, setLinkUrl] = useState('');
+  const [showImageInput, setShowImageInput] = useState(false);
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [levelUpData, setLevelUpData] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const canAccessMod = userRole === 'mod' || userRole === 'admin';
@@ -38,7 +46,7 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
   });
 
   const sendMessageMutation = useMutation({
-    mutationFn: async (message: string) => {
+    mutationFn: async (data: { message: string; imageUrl?: string; linkUrl?: string }) => {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
@@ -49,7 +57,7 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
       const response = await fetch(`/api/chat/${activeRoom}`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ message }),
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
@@ -59,8 +67,17 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
 
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setInputValue('');
+      setImageUrl('');
+      setLinkUrl('');
+      setShowImageInput(false);
+      setShowLinkInput(false);
+      
+      if (data.levelUp && data.levelUp.newLevel > data.levelUp.oldLevel) {
+        setLevelUpData(data.levelUp);
+      }
+      
       refetch();
     },
   });
@@ -73,7 +90,11 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
     const message = inputValue.trim();
     if (!message || sendMessageMutation.isPending) return;
 
-    sendMessageMutation.mutate(message);
+    sendMessageMutation.mutate({
+      message,
+      imageUrl: imageUrl.trim() || undefined,
+      linkUrl: linkUrl.trim() || undefined,
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -97,6 +118,15 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
       );
     }
 
+    const BadgeIcon = ({ badge }: { badge?: string }) => {
+      if (!badge) return null;
+      if (badge === 'star') return <Star className="w-3 h-3 text-yellow-400" fill="currentColor" />;
+      if (badge === 'shield') return <Shield className="w-3 h-3 text-blue-400" fill="currentColor" />;
+      if (badge === 'crown') return <Crown className="w-3 h-3 text-yellow-500" fill="currentColor" />;
+      if (badge === 'fire') return <Flame className="w-3 h-3 text-orange-500" fill="currentColor" />;
+      return null;
+    };
+
     return messages.map((msg) => (
       <div key={msg.id} className="flex gap-3 mb-4">
         <Avatar className="w-8 h-8 shrink-0">
@@ -108,6 +138,10 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2 mb-1">
             <span className="font-medium text-white text-sm">{msg.username}</span>
+            {msg.level && (
+              <span className="text-xs text-primary font-bold">Lv.{msg.level}</span>
+            )}
+            <BadgeIcon badge={msg.badge} />
             <span className="text-xs text-white/40">
               {new Date(msg.timestamp).toLocaleTimeString([], {
                 hour: '2-digit',
@@ -116,13 +150,39 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
             </span>
           </div>
           <p className="text-sm text-white/90 break-words">{msg.message}</p>
+          {msg.imageUrl && (
+            <img 
+              src={msg.imageUrl} 
+              alt="Shared" 
+              className="mt-2 max-w-xs rounded-lg border border-white/10"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+          )}
+          {msg.linkUrl && (
+            <a 
+              href={msg.linkUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 mt-1 text-xs text-blue-400 hover:underline"
+            >
+              <LinkIcon className="w-3 h-3" />
+              {msg.linkUrl}
+            </a>
+          )}
         </div>
       </div>
     ));
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <>
+      {levelUpData && (
+        <LevelUpNotification 
+          newLevel={levelUpData.newLevel} 
+          onComplete={() => setLevelUpData(null)} 
+        />
+      )}
+      <div className="flex flex-col h-full">
       <Tabs value={activeRoom} onValueChange={(v) => setActiveRoom(v as ChatRoom)} className="flex-1 flex flex-col">
         <div className="p-4 pb-0">
           <TabsList className="grid w-full grid-cols-3 bg-white/5">
@@ -163,29 +223,69 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
         </TabsContent>
       </Tabs>
 
-      <div className="flex gap-2 p-4 pt-3 border-t border-white/10">
-        <Input
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={`Message ${activeRoom} chat...`}
-          className="flex-1 bg-white/5 border-white/10 text-white placeholder:text-white/40"
-          disabled={sendMessageMutation.isPending}
-          maxLength={500}
-        />
-        <Button
-          onClick={handleSend}
-          disabled={!inputValue.trim() || sendMessageMutation.isPending}
-          size="icon"
-          className="shrink-0"
-        >
-          {sendMessageMutation.isPending ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Send className="w-4 h-4" />
-          )}
-        </Button>
+      <div className="p-4 pt-3 border-t border-white/10 space-y-2">
+        {(showImageInput || showLinkInput) && (
+          <div className="space-y-2">
+            {showImageInput && (
+              <Input
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="Image URL..."
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/40"
+              />
+            )}
+            {showLinkInput && (
+              <Input
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                placeholder="Link URL..."
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/40"
+              />
+            )}
+          </div>
+        )}
+        
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setShowImageInput(!showImageInput)}
+            size="icon"
+            variant="ghost"
+            className="shrink-0 text-white/70 hover:text-white"
+          >
+            <ImageIcon className="w-4 h-4" />
+          </Button>
+          <Button
+            onClick={() => setShowLinkInput(!showLinkInput)}
+            size="icon"
+            variant="ghost"
+            className="shrink-0 text-white/70 hover:text-white"
+          >
+            <LinkIcon className="w-4 h-4" />
+          </Button>
+          <Input
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={`Message ${activeRoom} chat...`}
+            className="flex-1 bg-white/5 border-white/10 text-white placeholder:text-white/40"
+            disabled={sendMessageMutation.isPending}
+            maxLength={500}
+          />
+          <Button
+            onClick={handleSend}
+            disabled={!inputValue.trim() || sendMessageMutation.isPending}
+            size="icon"
+            className="shrink-0"
+          >
+            {sendMessageMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
       </div>
     </div>
+    </>
   );
 }
