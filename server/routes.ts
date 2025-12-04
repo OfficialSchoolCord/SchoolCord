@@ -2,8 +2,12 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import axios from "axios";
 import * as cheerio from "cheerio";
-import { fetchRequestSchema, loginSchema, registerSchema, defaultQuickApps } from "@shared/schema";
+import OpenAI from "openai";
+import { fetchRequestSchema, loginSchema, registerSchema, defaultQuickApps, aiChatRequestSchema, userRoleSchema } from "@shared/schema";
 import * as storage from "./storage";
+
+// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const BLOCKED_HOSTS = [
   'localhost',
@@ -51,6 +55,14 @@ function requireAdmin(req: any, res: any, next: any) {
   const user = storage.getUser(req.userId);
   if (!user || !user.isAdmin) {
     return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+}
+
+// Middleware to check moderator access (admin or mod)
+function requireModerator(req: any, res: any, next: any) {
+  if (!storage.hasModeratorAccess(req.userId)) {
+    return res.status(403).json({ error: 'Moderator access required' });
   }
   next();
 }
@@ -397,9 +409,76 @@ export async function registerRoutes(
     return res.json({ success: true });
   });
 
-  app.get('/api/admin/blocked-websites', requireAuth, requireAdmin, async (req, res) => {
+  app.get('/api/admin/blocked-websites', requireAuth, requireModerator, async (req, res) => {
     const blocked = storage.getBlockedWebsites();
     return res.json({ blocked });
+  });
+
+  // Role management (admin only)
+  app.post('/api/admin/set-role', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { userId, role } = req.body;
+      
+      const validation = userRoleSchema.safeParse(role);
+      if (!validation.success) {
+        return res.status(400).json({ error: 'Invalid role. Must be user, mod, or admin' });
+      }
+      
+      const user = storage.setUserRole(userId, validation.data);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      return res.json({ success: true, user });
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to update role' });
+    }
+  });
+
+  // AI Chat endpoint
+  app.post('/api/ai/chat', requireAuth, async (req: any, res) => {
+    try {
+      const validation = aiChatRequestSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: 'Invalid request' });
+      }
+
+      const { message, history = [] } = validation.data;
+
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ error: 'AI service not configured' });
+      }
+
+      const messages: OpenAI.ChatCompletionMessageParam[] = [
+        {
+          role: 'system',
+          content: 'You are a helpful AI assistant for a web browser application called Illing Star. You can help users with questions, provide information, and assist with various tasks. Be friendly, concise, and helpful.'
+        },
+        ...history.map(m => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content
+        })),
+        { role: 'user', content: message }
+      ];
+
+      const response = await openai.chat.completions.create({
+        model: 'gpt-5',
+        messages,
+        max_completion_tokens: 1024,
+      });
+
+      const assistantMessage = response.choices[0]?.message?.content || 'Sorry, I could not generate a response.';
+
+      return res.json({
+        success: true,
+        message: assistantMessage,
+      });
+    } catch (error: any) {
+      console.error('AI chat error:', error);
+      return res.status(500).json({ 
+        error: error.message || 'Failed to get AI response' 
+      });
+    }
   });
   
   app.post('/api/browse', async (req, res) => {
