@@ -3,7 +3,6 @@ import { useMutation } from '@tanstack/react-query';
 import { Send, Bot, User, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { apiRequest } from '@/lib/queryClient';
 
 interface ChatMessage {
@@ -14,7 +13,7 @@ interface ChatMessage {
 export function AIChatPanel() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
@@ -38,9 +37,7 @@ export function AIChatPanel() {
   });
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleSend = () => {
@@ -71,7 +68,7 @@ export function AIChatPanel() {
         </div>
       </div>
 
-      <ScrollArea className="flex-1 pr-4" ref={scrollRef}>
+      <div className="flex-1 overflow-y-auto pr-2">
         <div className="space-y-4">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-64 text-center">
@@ -123,8 +120,9 @@ export function AIChatPanel() {
               </div>
             </div>
           )}
+          <div ref={messagesEndRef} />
         </div>
-      </ScrollArea>
+      </div>
 
       <div className="flex gap-2 pt-3 border-t border-white/10">
         <Input

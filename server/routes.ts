@@ -7,7 +7,12 @@ import { fetchRequestSchema, loginSchema, registerSchema, defaultQuickApps, aiCh
 import * as storage from "./storage";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+function getOpenAIClient(): OpenAI | null {
+  if (!process.env.OPENAI_API_KEY) {
+    return null;
+  }
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+}
 
 const BLOCKED_HOSTS = [
   'localhost',
@@ -374,24 +379,24 @@ export async function registerRoutes(
     return res.json({ history });
   });
 
-  // Admin routes
-  app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
+  // Admin routes - viewing allowed for mods, modifying only for admins
+  app.get('/api/admin/users', requireAuth, requireModerator, async (req, res) => {
     const users = storage.getAllUsers();
     return res.json({ users });
   });
 
-  app.get('/api/admin/analytics', requireAuth, requireAdmin, async (req, res) => {
+  app.get('/api/admin/analytics', requireAuth, requireModerator, async (req, res) => {
     const analytics = storage.getAnalytics();
     return res.json(analytics);
   });
 
-  app.post('/api/admin/ban-user', requireAuth, requireAdmin, async (req, res) => {
+  app.post('/api/admin/ban-user', requireAuth, requireModerator, async (req, res) => {
     const { userId } = req.body;
     storage.banUser(userId);
     return res.json({ success: true });
   });
 
-  app.post('/api/admin/unban-user', requireAuth, requireAdmin, async (req, res) => {
+  app.post('/api/admin/unban-user', requireAuth, requireModerator, async (req, res) => {
     const { userId } = req.body;
     storage.unbanUser(userId);
     return res.json({ success: true });
@@ -445,8 +450,9 @@ export async function registerRoutes(
 
       const { message, history = [] } = validation.data;
 
-      if (!process.env.OPENAI_API_KEY) {
-        return res.status(503).json({ error: 'AI service not configured' });
+      const openaiClient = getOpenAIClient();
+      if (!openaiClient) {
+        return res.status(503).json({ error: 'AI service not configured. Please add your OpenAI API key.' });
       }
 
       const messages: OpenAI.ChatCompletionMessageParam[] = [
@@ -461,7 +467,7 @@ export async function registerRoutes(
         { role: 'user', content: message }
       ];
 
-      const response = await openai.chat.completions.create({
+      const response = await openaiClient.chat.completions.create({
         model: 'gpt-5',
         messages,
         max_completion_tokens: 1024,

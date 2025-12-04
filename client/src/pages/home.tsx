@@ -10,10 +10,11 @@ import { HistoryPanel } from '@/components/HistoryPanel';
 import { AppsPanel } from '@/components/AppsPanel';
 import { ProfilePanel } from '@/components/ProfilePanel';
 import { AdminPanel } from '@/components/AdminPanel';
+import { AIChatPanel } from '@/components/AIChatPanel';
 import { AuthModal } from '@/components/AuthModal';
 import { useToast } from '@/hooks/use-toast';
 import { useBrowserSettings } from '@/hooks/use-browser-settings';
-import type { NavItemId, HistoryItem, FetchResponse } from '@shared/schema';
+import type { NavItemId, HistoryItem, FetchResponse, UserRole } from '@shared/schema';
 
 export default function Home() {
   const [activePanel, setActivePanel] = useState<NavItemId | null>('home');
@@ -38,6 +39,9 @@ export default function Home() {
     addToHistory, 
     clearHistory 
   } = useBrowserSettings();
+
+  const userRole: UserRole = user?.role || 'user';
+  const hasModeratorAccess = userRole === 'admin' || userRole === 'mod';
 
   useEffect(() => {
     const savedSessionId = localStorage.getItem('sessionId');
@@ -240,8 +244,11 @@ export default function Home() {
     } else if (panel === 'profile' && !user) {
       setShowAuthModal(true);
       setActivePanel(null);
-    } else if (panel === 'settings' && user?.isAdmin) {
-      setActivePanel('admin' as NavItemId);
+    } else if (panel === 'admin' && !hasModeratorAccess) {
+      return;
+    } else if (panel === 'ai' && !user) {
+      setShowAuthModal(true);
+      setActivePanel(null);
     } else {
       setActivePanel(panel);
     }
@@ -259,39 +266,77 @@ export default function Home() {
     switch (activePanel) {
       case 'settings':
         return (
-          <SettingsPanel 
-            privacyMode={privacyMode}
-            onTogglePrivacy={togglePrivacyMode}
-            onClearHistory={handleClearHistory}
-            onClose={handleClosePanel} 
-          />
+          <div className="fixed inset-0 ml-16 flex items-center justify-center z-40 animate-fade-in" style={{ background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)' }}>
+            <div className="w-full max-w-lg border border-white/10 max-h-[80vh] rounded-lg" style={{ background: 'rgba(30, 20, 40, 0.95)', backdropFilter: 'blur(20px)' }}>
+              <SettingsPanel 
+                privacyMode={privacyMode}
+                onTogglePrivacy={togglePrivacyMode}
+                onClearHistory={handleClearHistory}
+                onClose={handleClosePanel} 
+              />
+            </div>
+          </div>
         );
       case 'history':
         return (
-          <HistoryPanel 
-            history={savedHistory}
-            onNavigate={handleHistoryNavigate}
-            onClear={handleClearHistory}
-            onClose={handleClosePanel} 
-          />
+          <div className="fixed inset-0 ml-16 flex items-center justify-center z-40 animate-fade-in" style={{ background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)' }}>
+            <div className="w-full max-w-lg border border-white/10 max-h-[80vh] rounded-lg" style={{ background: 'rgba(30, 20, 40, 0.95)', backdropFilter: 'blur(20px)' }}>
+              <HistoryPanel 
+                history={savedHistory}
+                onNavigate={handleHistoryNavigate}
+                onClear={handleClearHistory}
+                onClose={handleClosePanel} 
+              />
+            </div>
+          </div>
         );
       case 'apps':
         return (
-          <AppsPanel onNavigate={handleNavigate} onClose={handleClosePanel} sessionId={sessionId} />
+          <div className="fixed inset-0 ml-16 flex items-center justify-center z-40 animate-fade-in" style={{ background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)' }}>
+            <div className="w-full max-w-2xl border border-white/10 max-h-[80vh] rounded-lg" style={{ background: 'rgba(30, 20, 40, 0.95)', backdropFilter: 'blur(20px)' }}>
+              <AppsPanel onNavigate={handleNavigate} onClose={handleClosePanel} sessionId={sessionId} />
+            </div>
+          </div>
         );
       case 'profile':
         return (
-          <ProfilePanel 
-            visitCount={visitCount} 
-            onClose={handleClosePanel}
-            user={user}
-            onSignIn={() => {
-              setActivePanel(null);
-              setShowAuthModal(true);
-            }}
-            onSignOut={handleSignOut}
-            onUpdateProfile={handleUpdateProfile}
-          />
+          <div className="fixed inset-0 ml-16 flex items-center justify-center z-40 animate-fade-in" style={{ background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)' }}>
+            <div className="w-full max-w-lg border border-white/10 max-h-[80vh] rounded-lg" style={{ background: 'rgba(30, 20, 40, 0.95)', backdropFilter: 'blur(20px)' }}>
+              <ProfilePanel 
+                visitCount={visitCount} 
+                onClose={handleClosePanel}
+                user={user}
+                onSignIn={() => {
+                  setActivePanel(null);
+                  setShowAuthModal(true);
+                }}
+                onSignOut={handleSignOut}
+                onUpdateProfile={handleUpdateProfile}
+              />
+            </div>
+          </div>
+        );
+      case 'admin':
+        if (!hasModeratorAccess || !sessionId) return null;
+        return (
+          <div className="fixed inset-0 ml-16 flex items-center justify-center z-40 animate-fade-in" style={{ background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)' }}>
+            <div className="w-full max-w-3xl border border-white/10 max-h-[80vh] rounded-lg overflow-hidden" style={{ background: 'rgba(30, 20, 40, 0.95)', backdropFilter: 'blur(20px)' }}>
+              <AdminPanel 
+                onClose={handleClosePanel} 
+                sessionId={sessionId} 
+                currentUserRole={userRole}
+              />
+            </div>
+          </div>
+        );
+      case 'ai':
+        if (!user || !sessionId) return null;
+        return (
+          <div className="fixed inset-0 ml-16 flex items-center justify-center z-40 animate-fade-in" style={{ background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)' }}>
+            <div className="w-full max-w-2xl h-[80vh] border border-white/10 rounded-lg overflow-hidden" style={{ background: 'rgba(30, 20, 40, 0.95)', backdropFilter: 'blur(20px)' }}>
+              <AIChatPanel />
+            </div>
+          </div>
         );
       default:
         return null;
@@ -314,7 +359,7 @@ export default function Home() {
         <AppSidebar 
           activeNav={activePanel} 
           onNavChange={handlePanelChange} 
-          user={user}
+          userRole={userRole}
         />
 
         <SidebarInset className="bg-transparent">
@@ -344,10 +389,6 @@ export default function Home() {
           )}
 
           {renderPanel()}
-
-          {activePanel === 'settings' && user?.isAdmin && sessionId && (
-            <AdminPanel onClose={handleClosePanel} sessionId={sessionId} />
-          )}
 
           {showAuthModal && (
             <AuthModal onClose={() => setShowAuthModal(false)} onSuccess={handleAuthSuccess} />
