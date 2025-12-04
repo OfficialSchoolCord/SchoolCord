@@ -88,11 +88,8 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
-    if (shouldAutoScroll && scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      }
+    if (shouldAutoScroll && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messagesData?.messages?.length, shouldAutoScroll]);
   
@@ -259,25 +256,19 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
           </TabsList>
         </div>
 
-        <TabsContent value="global" className="flex-1 mt-0 overflow-hidden flex flex-col">
-          <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-4" onScroll={handleScroll}>
-            {renderMessages()}
-            <div ref={messagesEndRef} />
-          </div>
+        <TabsContent value="global" className="flex-1 mt-0 overflow-auto p-4" onScroll={handleScroll}>
+          {renderMessages()}
+          <div ref={messagesEndRef} />
         </TabsContent>
 
-        <TabsContent value="mod" className="flex-1 mt-0 overflow-hidden flex flex-col">
-          <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-4" onScroll={handleScroll}>
-            {renderMessages()}
-            <div ref={messagesEndRef} />
-          </div>
+        <TabsContent value="mod" className="flex-1 mt-0 overflow-auto p-4" onScroll={handleScroll}>
+          {renderMessages()}
+          <div ref={messagesEndRef} />
         </TabsContent>
 
-        <TabsContent value="admin" className="flex-1 mt-0 overflow-hidden flex flex-col">
-          <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-4" onScroll={handleScroll}>
-            {renderMessages()}
-            <div ref={messagesEndRef} />
-          </div>
+        <TabsContent value="admin" className="flex-1 mt-0 overflow-auto p-4" onScroll={handleScroll}>
+          {renderMessages()}
+          <div ref={messagesEndRef} />
         </TabsContent>
       </Tabs>
 
