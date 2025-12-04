@@ -548,7 +548,6 @@ export async function registerRoutes(
       const { title, content } = extractTextContent(response.data);
 
       // Update history with title
-      const sessionId = req.headers['x-session-id'];
       if (sessionId && storage.storage.sessions.has(sessionId)) {
         const userId = storage.storage.sessions.get(sessionId);
         if (userId) {
