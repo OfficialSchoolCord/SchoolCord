@@ -29,6 +29,8 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
   const [blockReason, setBlockReason] = useState('');
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [editingLevelUserId, setEditingLevelUserId] = useState<string | null>(null);
+  const [newLevel, setNewLevel] = useState('');
 
   const isAdmin = currentUserRole === 'admin';
 
@@ -130,6 +132,31 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
     } catch (error) {
       console.error('Failed to change password:', error);
       alert('Failed to change password');
+    }
+  };
+
+  const handleChangeLevel = async (userId: string) => {
+    const levelNum = parseInt(newLevel, 10);
+    if (isNaN(levelNum) || levelNum < 1 || levelNum > 5000) {
+      alert('Level must be between 1 and 5000');
+      return;
+    }
+    try {
+      await fetch('/api/admin/change-level', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': sessionId,
+        },
+        body: JSON.stringify({ userId, newLevel: levelNum }),
+      });
+      setEditingLevelUserId(null);
+      setNewLevel('');
+      loadData();
+      alert('Level changed successfully');
+    } catch (error) {
+      console.error('Failed to change level:', error);
+      alert('Failed to change level');
     }
   };
 
@@ -260,6 +287,9 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
                       <p className="text-white font-medium">{user.username}</p>
                       <div className="flex items-center gap-2 mt-1">
                         {getRoleBadge(user.role || 'user')}
+                        <Badge variant="outline" className="text-yellow-400 border-yellow-400/30 text-xs">
+                          Level {user.level || 1}
+                        </Badge>
                         {user.isBanned && (
                           <Badge variant="destructive" className="text-xs">
                             <Ban className="w-3 h-3 mr-1" />Banned
@@ -297,14 +327,24 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
                         </Button>
                       )}
                       {isAdmin && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setEditingUserId(editingUserId === user.id ? null : user.id)}
-                          data-testid={`button-change-password-${user.id}`}
-                        >
-                          Change Password
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingUserId(editingUserId === user.id ? null : user.id)}
+                            data-testid={`button-change-password-${user.id}`}
+                          >
+                            Change Password
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingLevelUserId(editingLevelUserId === user.id ? null : user.id)}
+                            data-testid={`button-change-level-${user.id}`}
+                          >
+                            Change Level
+                          </Button>
+                        </>
                       )}
                     </div>
                     {isAdmin && editingUserId === user.id && (
@@ -321,6 +361,27 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
                           size="sm"
                           onClick={() => handleChangePassword(user.id)}
                           data-testid={`button-save-password-${user.id}`}
+                        >
+                          Save
+                        </Button>
+                      </div>
+                    )}
+                    {isAdmin && editingLevelUserId === user.id && (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={newLevel}
+                          onChange={(e) => setNewLevel(e.target.value)}
+                          placeholder="New level (1-5000)"
+                          min="1"
+                          max="5000"
+                          className="bg-white/5 border-white/10 text-white text-xs h-8"
+                          data-testid={`input-new-level-${user.id}`}
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => handleChangeLevel(user.id)}
+                          data-testid={`button-save-level-${user.id}`}
                         >
                           Save
                         </Button>

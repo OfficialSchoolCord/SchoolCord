@@ -244,6 +244,28 @@ export function changeUserPassword(userId: string, newPassword: string): User | 
   return userWithoutPassword;
 }
 
+export function changeUserLevel(userId: string, newLevel: number): User | null {
+  const user = storage.users.get(userId);
+  if (!user) return null;
+  
+  user.level = newLevel;
+  
+  // Recalculate XP based on level to maintain consistency
+  // Award badges based on new level
+  user.badges = [];
+  if (newLevel >= 10) user.badges.push('star');
+  if (newLevel >= 25) user.badges.push('shield');
+  if (newLevel >= 50) user.badges.push('goat');
+  if (newLevel >= 100) user.badges.push('crown');
+  if (newLevel >= 5000) user.badges.push('fire');
+  
+  storage.users.set(userId, user);
+  saveUsers();
+  
+  const { password, ...userWithoutPassword } = user;
+  return userWithoutPassword;
+}
+
 export function hasModeratorAccess(userId: string): boolean {
   const user = storage.users.get(userId);
   if (!user) return false;
