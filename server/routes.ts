@@ -6,11 +6,21 @@ import OpenAI from "openai";
 import { fetchRequestSchema, loginSchema, registerSchema, defaultQuickApps, aiChatRequestSchema, userRoleSchema } from "@shared/schema";
 import * as storage from "./storage";
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-function getOpenAIClient(): OpenAI | null {
-  if (!process.env.OPENAI_API_KEY) {
+// SambaNova API client using OpenAI-compatible format
+function getAIClient(): OpenAI | null {
+  const apiKey = process.env.SAMBANOVA_API_KEY || process.env.OPENAI_API_KEY;
+  if (!apiKey) {
     return null;
   }
+  
+  // Use SambaNova if key is available, otherwise fallback to OpenAI
+  if (process.env.SAMBANOVA_API_KEY) {
+    return new OpenAI({
+      apiKey: process.env.SAMBANOVA_API_KEY,
+      baseURL: 'https://api.sambanova.ai/v1',
+    });
+  }
+  
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
@@ -450,9 +460,9 @@ export async function registerRoutes(
 
       const { message, history = [] } = validation.data;
 
-      const openaiClient = getOpenAIClient();
-      if (!openaiClient) {
-        return res.status(503).json({ error: 'AI service not configured. Please add your OpenAI API key.' });
+      const aiClient = getAIClient();
+      if (!aiClient) {
+        return res.status(503).json({ error: 'AI service not configured. Please add your SambaNova API key to Secrets.' });
       }
 
       const messages: OpenAI.ChatCompletionMessageParam[] = [
@@ -467,10 +477,13 @@ export async function registerRoutes(
         { role: 'user', content: message }
       ];
 
-      const response = await openaiClient.chat.completions.create({
-        model: 'gpt-5',
+      // Use Meta-Llama-3.1-70B-Instruct or another SambaNova model
+      const model = process.env.SAMBANOVA_API_KEY ? 'Meta-Llama-3.1-70B-Instruct' : 'gpt-5';
+      
+      const response = await aiClient.chat.completions.create({
+        model,
         messages,
-        max_completion_tokens: 1024,
+        max_tokens: 1024,
       });
 
       const assistantMessage = response.choices[0]?.message?.content || 'Sorry, I could not generate a response.';
