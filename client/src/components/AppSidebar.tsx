@@ -32,6 +32,7 @@ const baseNavItems: { id: NavItemId; label: string; icon: typeof Home }[] = [
   { id: 'search', label: 'Search', icon: Search },
   { id: 'apps', label: 'Apps', icon: Grid3X3 },
   { id: 'ai', label: 'AI Assistant', icon: MessageSquare },
+  { id: 'chat', label: 'Chat', icon: MessageSquare },
   { id: 'settings', label: 'Settings', icon: Settings },
   { id: 'history', label: 'History', icon: Clock },
   { id: 'profile', label: 'Profile', icon: User },

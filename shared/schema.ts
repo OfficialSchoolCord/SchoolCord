@@ -49,10 +49,33 @@ export const aiMessageSchema = z.object({
 
 export type AIMessage = z.infer<typeof aiMessageSchema>;
 
+export type NavItemId = 'home' | 'search' | 'apps' | 'ai' | 'chat' | 'settings' | 'history' | 'profile' | 'admin';
+
 // AI chat request schema
 export const aiChatRequestSchema = z.object({
   message: z.string().min(1),
   history: z.array(aiMessageSchema).optional(),
+});
+
+// Chat system schemas
+export const chatRoomSchema = z.enum(['global', 'mod', 'admin']);
+export type ChatRoom = z.infer<typeof chatRoomSchema>;
+
+export const chatMessageSchema = z.object({
+  id: z.string(),
+  room: chatRoomSchema,
+  userId: z.string().optional(),
+  username: z.string(),
+  profilePicture: z.string().optional(),
+  message: z.string(),
+  timestamp: z.string(),
+});
+
+export type ChatMessage = z.infer<typeof chatMessageSchema>;
+
+export const sendChatMessageSchema = z.object({
+  room: chatRoomSchema,
+  message: z.string().min(1).max(500),
 });
 
 export type AIChatRequest = z.infer<typeof aiChatRequestSchema>;

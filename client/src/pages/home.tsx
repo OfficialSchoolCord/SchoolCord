@@ -11,6 +11,7 @@ import { AppsPanel } from '@/components/AppsPanel';
 import { ProfilePanel } from '@/components/ProfilePanel';
 import { AdminPanel } from '@/components/AdminPanel';
 import { AIChatPanel } from '@/components/AIChatPanel';
+import { ChatPanel } from '@/components/ChatPanel';
 import { AuthModal } from '@/components/AuthModal';
 import { useToast } from '@/hooks/use-toast';
 import { useBrowserSettings } from '@/hooks/use-browser-settings';
@@ -335,6 +336,14 @@ export default function Home() {
           <div className="fixed inset-0 ml-16 flex items-center justify-center z-40 animate-fade-in" style={{ background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)' }}>
             <div className="w-full max-w-2xl h-[80vh] border border-white/10 rounded-lg overflow-hidden" style={{ background: 'rgba(30, 20, 40, 0.95)', backdropFilter: 'blur(20px)' }}>
               <AIChatPanel />
+            </div>
+          </div>
+        );
+      case 'chat':
+        return (
+          <div className="fixed inset-0 ml-16 flex items-center justify-center z-40 animate-fade-in" style={{ background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)' }}>
+            <div className="w-full max-w-3xl h-[80vh] border border-white/10 rounded-lg overflow-hidden" style={{ background: 'rgba(30, 20, 40, 0.95)', backdropFilter: 'blur(20px)' }}>
+              <ChatPanel sessionId={sessionId} userRole={userRole} />
             </div>
           </div>
         );

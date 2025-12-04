@@ -1,5 +1,5 @@
 
-import type { User, QuickApp, BlockedWebsite, HistoryItem, UserRole } from "@shared/schema";
+import type { User, QuickApp, BlockedWebsite, HistoryItem, UserRole, ChatMessage, ChatRoom } from "@shared/schema";
 
 // In-memory storage (replace with actual database in production)
 export const storage = {
@@ -10,6 +10,11 @@ export const storage = {
   sessions: new Map<string, string>(), // sessionId -> userId
   pageViews: 0,
   bannedUsers: new Set<string>(),
+  chatMessages: new Map<ChatRoom, ChatMessage[]>([
+    ['global', []],
+    ['mod', []],
+    ['admin', []],
+  ]),
 };
 
 // Initialize admin account
@@ -182,4 +187,38 @@ export function getAnalytics() {
 
 export function incrementPageViews() {
   storage.pageViews++;
+}
+
+export function addChatMessage(room: ChatRoom, message: ChatMessage) {
+  const messages = storage.chatMessages.get(room) || [];
+  messages.push(message);
+  // Keep last 200 messages per room
+  if (messages.length > 200) {
+    messages.shift();
+  }
+  storage.chatMessages.set(room, messages);
+  return message;
+}
+
+export function getChatMessages(room: ChatRoom): ChatMessage[] {
+  return storage.chatMessages.get(room) || [];
+}
+
+export function canAccessChatRoom(userId: string | undefined, room: ChatRoom): boolean {
+  if (room === 'global') return true;
+  
+  if (!userId) return false;
+  
+  const user = storage.users.get(userId);
+  if (!user) return false;
+  
+  if (room === 'mod') {
+    return user.role === 'mod' || user.role === 'admin';
+  }
+  
+  if (room === 'admin') {
+    return user.role === 'admin';
+  }
+  
+  return false;
 }

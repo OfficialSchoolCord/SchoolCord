@@ -3,7 +3,8 @@ import { createServer, type Server } from "http";
 import axios from "axios";
 import * as cheerio from "cheerio";
 import OpenAI from "openai";
-import { fetchRequestSchema, loginSchema, registerSchema, defaultQuickApps, aiChatRequestSchema, userRoleSchema } from "@shared/schema";
+import { fetchRequestSchema, loginSchema, registerSchema, defaultQuickApps, aiChatRequestSchema, userRoleSchema, sendChatMessageSchema } from "@shared/schema";
+import type { ChatRoom } from "@shared/schema";
 import * as storage from "./storage";
 
 // SambaNova API client using OpenAI-compatible format
@@ -467,6 +468,75 @@ export async function registerRoutes(
       return res.json({ success: true });
     } catch (error) {
       return res.status(500).json({ error: 'Failed to change password' });
+    }
+  });
+
+  // Chat endpoints
+  app.get('/api/chat/:room', async (req: any, res) => {
+    const room = req.params.room as ChatRoom;
+    
+    if (!['global', 'mod', 'admin'].includes(room)) {
+      return res.status(400).json({ error: 'Invalid chat room' });
+    }
+    
+    // Check access for protected rooms
+    if (room !== 'global') {
+      const sessionId = req.headers['x-session-id'];
+      const userId = sessionId ? storage.storage.sessions.get(sessionId) : undefined;
+      
+      if (!storage.canAccessChatRoom(userId, room)) {
+        return res.status(403).json({ error: 'Access denied to this chat room' });
+      }
+    }
+    
+    const messages = storage.getChatMessages(room);
+    return res.json({ messages });
+  });
+
+  app.post('/api/chat/:room', async (req: any, res) => {
+    try {
+      const room = req.params.room as ChatRoom;
+      const validation = sendChatMessageSchema.safeParse({ room, message: req.body.message });
+      
+      if (!validation.success) {
+        return res.status(400).json({ error: 'Invalid message' });
+      }
+      
+      const { message } = validation.data;
+      const sessionId = req.headers['x-session-id'];
+      const userId = sessionId ? storage.storage.sessions.get(sessionId) : undefined;
+      
+      // Check access for protected rooms
+      if (room !== 'global') {
+        if (!storage.canAccessChatRoom(userId, room)) {
+          return res.status(403).json({ error: 'Access denied to this chat room' });
+        }
+      }
+      
+      let username = 'Guest';
+      let profilePicture: string | undefined;
+      
+      if (userId) {
+        const user = storage.getUser(userId);
+        if (user) {
+          username = user.username;
+          profilePicture = user.profilePicture;
+        }
+      }
+      
+      const chatMessage = storage.addChatMessage(room, {
+        id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        room,
+        userId,
+        username,
+        profilePicture,
+        message,
+        timestamp: new Date().toISOString(),
+      });
+      
+      return res.json({ success: true, message: chatMessage });
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to send message' });
     }
   });
 
