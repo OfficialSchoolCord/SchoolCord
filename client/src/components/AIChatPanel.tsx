@@ -17,10 +17,24 @@ export function AIChatPanel() {
 
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
-      const response = await apiRequest('POST', '/api/ai/chat', {
-        message,
-        history: messages.slice(-10),
+      const sessionId = localStorage.getItem('sessionId');
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': sessionId || '',
+        },
+        body: JSON.stringify({
+          message,
+          history: messages.slice(-10),
+        }),
       });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to get AI response');
+      }
+      
       return response.json();
     },
     onSuccess: (data) => {
