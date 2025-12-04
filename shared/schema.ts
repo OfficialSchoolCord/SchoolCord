@@ -1,6 +1,10 @@
 
 import { z } from "zod";
 
+// User roles
+export const userRoleSchema = z.enum(['user', 'mod', 'admin']);
+export type UserRole = z.infer<typeof userRoleSchema>;
+
 // Browser fetch request schema
 export const fetchRequestSchema = z.object({
   url: z.string().min(1, "URL is required"),
@@ -26,6 +30,7 @@ export const userSchema = z.object({
   id: z.string(),
   username: z.string(),
   email: z.string().email().optional(),
+  role: userRoleSchema.default('user'),
   isAdmin: z.boolean().default(false),
   profilePicture: z.string().optional(),
   googleAccountLinked: z.boolean().default(false),
@@ -35,6 +40,22 @@ export const userSchema = z.object({
 });
 
 export type User = z.infer<typeof userSchema>;
+
+// AI chat message schema
+export const aiMessageSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string(),
+});
+
+export type AIMessage = z.infer<typeof aiMessageSchema>;
+
+// AI chat request schema
+export const aiChatRequestSchema = z.object({
+  message: z.string().min(1),
+  history: z.array(aiMessageSchema).optional(),
+});
+
+export type AIChatRequest = z.infer<typeof aiChatRequestSchema>;
 
 // Quick app schema
 export const quickAppSchema = z.object({
@@ -114,9 +135,11 @@ export const sidebarNavItems = [
   { id: 'home', label: 'Home', icon: 'home' },
   { id: 'search', label: 'Search', icon: 'search' },
   { id: 'apps', label: 'Apps', icon: 'apps' },
+  { id: 'ai', label: 'AI Assistant', icon: 'ai' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
   { id: 'history', label: 'History', icon: 'history' },
   { id: 'profile', label: 'Profile', icon: 'profile' },
+  { id: 'admin', label: 'Admin Panel', icon: 'admin' },
 ] as const;
 
 export type NavItemId = typeof sidebarNavItems[number]['id'];

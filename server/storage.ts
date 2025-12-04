@@ -1,5 +1,5 @@
 
-import type { User, QuickApp, BlockedWebsite, HistoryItem } from "@shared/schema";
+import type { User, QuickApp, BlockedWebsite, HistoryItem, UserRole } from "@shared/schema";
 
 // In-memory storage (replace with actual database in production)
 export const storage = {
@@ -19,6 +19,7 @@ storage.users.set(adminId, {
   username: "illingstar",
   password: "Av121988", // In production, hash this!
   email: "admin@illingstar.com",
+  role: 'admin',
   isAdmin: true,
   profilePicture: undefined,
   googleAccountLinked: false,
@@ -46,6 +47,7 @@ export function createUser(username: string, password: string, email?: string): 
     username,
     password,
     email,
+    role: 'user' as UserRole,
     isAdmin: false,
     profilePicture: undefined,
     googleAccountLinked: false,
@@ -138,6 +140,24 @@ export function getAllUsers(): (User & { isBanned: boolean })[] {
       isBanned: storage.bannedUsers.has(user.id),
     };
   });
+}
+
+export function setUserRole(userId: string, role: UserRole): User | null {
+  const user = storage.users.get(userId);
+  if (!user) return null;
+  
+  user.role = role;
+  user.isAdmin = role === 'admin';
+  storage.users.set(userId, user);
+  
+  const { password, ...userWithoutPassword } = user;
+  return userWithoutPassword;
+}
+
+export function hasModeratorAccess(userId: string): boolean {
+  const user = storage.users.get(userId);
+  if (!user) return false;
+  return user.role === 'admin' || user.role === 'mod';
 }
 
 export function getAnalytics() {
