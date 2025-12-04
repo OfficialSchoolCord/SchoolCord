@@ -2,7 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import axios from "axios";
 import * as cheerio from "cheerio";
-import { fetchRequestSchema } from "@shared/schema";
+import { fetchRequestSchema, loginSchema, registerSchema, defaultQuickApps } from "@shared/schema";
+import * as storage from "./storage";
 
 const BLOCKED_HOSTS = [
   'localhost',
@@ -16,6 +17,31 @@ const BLOCKED_HOSTS = [
   '172.17.',
   '172.18.',
   '172.19.',
+
+
+// Middleware to check authentication
+function requireAuth(req: any, res: any, next: any) {
+  const sessionId = req.headers['x-session-id'];
+  if (!sessionId || !storage.storage.sessions.has(sessionId)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const userId = storage.storage.sessions.get(sessionId);
+  if (storage.isUserBanned(userId!)) {
+    return res.status(403).json({ error: 'Account banned' });
+  }
+  req.userId = userId;
+  next();
+}
+
+// Middleware to check admin
+function requireAdmin(req: any, res: any, next: any) {
+  const user = storage.getUser(req.userId);
+  if (!user || !user.isAdmin) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+}
+
   '172.20.',
   '172.21.',
   '172.22.',
@@ -233,6 +259,151 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
+  // Auth routes
+  app.post('/api/auth/register', async (req, res) => {
+    try {
+      const validation = registerSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: 'Invalid registration data' });
+      }
+
+      const { username, password, email } = validation.data;
+      
+      if (storage.getUserByUsername(username)) {
+        return res.status(400).json({ error: 'Username already exists' });
+      }
+
+      const user = storage.createUser(username, password, email);
+      const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      storage.storage.sessions.set(sessionId, user.id);
+
+      // Initialize default quick apps for new user
+      const userApps = defaultQuickApps.map((app, index) => ({
+        ...app,
+        userId: user.id,
+        order: index,
+      }));
+      storage.setUserQuickApps(user.id, userApps);
+
+      const { password: _, ...userWithoutPassword } = user;
+      return res.json({ user: userWithoutPassword, sessionId });
+    } catch (error) {
+      return res.status(500).json({ error: 'Registration failed' });
+    }
+  });
+
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const validation = loginSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: 'Invalid login data' });
+      }
+
+      const { username, password } = validation.data;
+      const user = storage.getUserByUsername(username);
+
+      if (!user || user.password !== password) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+
+      if (storage.isUserBanned(user.id)) {
+        return res.status(403).json({ error: 'Account has been banned' });
+      }
+
+      const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      storage.storage.sessions.set(sessionId, user.id);
+      storage.updateUser(user.id, { lastLogin: new Date().toISOString() });
+
+      const { password: _, ...userWithoutPassword } = user;
+      return res.json({ user: userWithoutPassword, sessionId });
+    } catch (error) {
+      return res.status(500).json({ error: 'Login failed' });
+    }
+  });
+
+  app.post('/api/auth/logout', requireAuth, async (req: any, res) => {
+    const sessionId = req.headers['x-session-id'];
+    storage.storage.sessions.delete(sessionId);
+    return res.json({ success: true });
+  });
+
+  app.get('/api/auth/me', requireAuth, async (req: any, res) => {
+    const user = storage.getUser(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const { password: _, ...userWithoutPassword } = user;
+    return res.json({ user: userWithoutPassword });
+  });
+
+  app.put('/api/auth/profile', requireAuth, async (req: any, res) => {
+    const { username, profilePicture } = req.body;
+    const updated = storage.updateUser(req.userId, { username, profilePicture });
+    if (!updated) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const { password: _, ...userWithoutPassword } = updated;
+    return res.json({ user: userWithoutPassword });
+  });
+
+  // Quick apps routes
+  app.get('/api/quick-apps', requireAuth, async (req: any, res) => {
+    const apps = storage.getUserQuickApps(req.userId);
+    return res.json({ apps });
+  });
+
+  app.post('/api/quick-apps', requireAuth, async (req: any, res) => {
+    const apps = req.body.apps;
+    storage.setUserQuickApps(req.userId, apps);
+    return res.json({ success: true, apps });
+  });
+
+  // History routes
+  app.get('/api/history', requireAuth, async (req: any, res) => {
+    const history = storage.getUserHistory(req.userId);
+    return res.json({ history });
+  });
+
+  // Admin routes
+  app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
+    const users = storage.getAllUsers();
+    return res.json({ users });
+  });
+
+  app.get('/api/admin/analytics', requireAuth, requireAdmin, async (req, res) => {
+    const analytics = storage.getAnalytics();
+    return res.json(analytics);
+  });
+
+  app.post('/api/admin/ban-user', requireAuth, requireAdmin, async (req, res) => {
+    const { userId } = req.body;
+    storage.banUser(userId);
+    return res.json({ success: true });
+  });
+
+  app.post('/api/admin/unban-user', requireAuth, requireAdmin, async (req, res) => {
+    const { userId } = req.body;
+    storage.unbanUser(userId);
+    return res.json({ success: true });
+  });
+
+  app.post('/api/admin/block-website', requireAuth, requireAdmin, async (req: any, res) => {
+    const { url, reason } = req.body;
+    const blocked = storage.addBlockedWebsite(url, req.userId, reason);
+    return res.json({ success: true, blocked });
+  });
+
+  app.post('/api/admin/unblock-website', requireAuth, requireAdmin, async (req, res) => {
+    const { id } = req.body;
+    storage.removeBlockedWebsite(id);
+    return res.json({ success: true });
+  });
+
+  app.get('/api/admin/blocked-websites', requireAuth, requireAdmin, async (req, res) => {
+    const blocked = storage.getBlockedWebsites();
+    return res.json({ blocked });
+  });
+  
   app.post('/api/browse', async (req, res) => {
     try {
       const validation = fetchRequestSchema.safeParse(req.body);
@@ -322,6 +493,30 @@ export async function registerRoutes(
           error: 'Invalid URL format. Please enter a valid website address.',
         });
       }
+
+      // Check if website is blocked
+      if (storage.isWebsiteBlocked(normalizedUrl)) {
+        return res.status(403).json({
+          success: false,
+          url: normalizedUrl,
+          error: 'This website has been blocked by an administrator.',
+        });
+      }
+
+      // Track page view and add to history
+      storage.incrementPageViews();
+      const sessionId = req.headers['x-session-id'];
+      if (sessionId && storage.storage.sessions.has(sessionId)) {
+        const userId = storage.storage.sessions.get(sessionId);
+        if (userId) {
+          storage.addToHistory(userId, {
+            url: normalizedUrl,
+            title: '',
+            visitedAt: new Date().toISOString(),
+            userId,
+          });
+        }
+      }
       
       const response = await axios.get(normalizedUrl, {
         headers: {
@@ -353,6 +548,18 @@ export async function registerRoutes(
       }
       
       const { title, content } = extractTextContent(response.data);
+
+      // Update history with title
+      const sessionId = req.headers['x-session-id'];
+      if (sessionId && storage.storage.sessions.has(sessionId)) {
+        const userId = storage.storage.sessions.get(sessionId);
+        if (userId) {
+          const history = storage.getUserHistory(userId);
+          if (history.length > 0 && history[0].url === normalizedUrl) {
+            history[0].title = title;
+          }
+        }
+      }
       
       return res.json({
         success: true,
