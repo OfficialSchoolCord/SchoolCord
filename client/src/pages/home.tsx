@@ -16,6 +16,7 @@ import { AuthModal } from '@/components/AuthModal';
 import { LevelUpNotification } from '@/components/LevelUpNotification';
 import { LeaderboardPanel } from '@/components/LeaderboardPanel';
 import { OnboardingTutorial } from '@/components/OnboardingTutorial';
+import { AnnouncementDisplay } from '@/components/AnnouncementDisplay';
 import { useToast } from '@/hooks/use-toast';
 import { useBrowserSettings } from '@/hooks/use-browser-settings';
 import type { NavItemId, HistoryItem, FetchResponse, UserRole } from '@shared/schema';
@@ -388,6 +389,7 @@ export default function Home() {
   return (
     <div className="min-h-screen overflow-hidden relative">
       <Starfield />
+      <AnnouncementDisplay />
 
       {showOnboarding && (
         <OnboardingTutorial onComplete={handleOnboardingComplete} />

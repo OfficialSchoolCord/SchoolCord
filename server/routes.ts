@@ -549,6 +549,41 @@ export async function registerRoutes(
     return res.json({ leaderboard });
   });
 
+  // Announcement endpoints
+  app.post('/api/admin/announce', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const { message } = req.body;
+      if (!message || typeof message !== 'string' || message.trim().length === 0) {
+        return res.status(400).json({ error: 'Message is required' });
+      }
+      
+      const announcement = storage.createAnnouncement(req.userId, message.trim());
+      return res.json({ success: true, announcement });
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to create announcement' });
+    }
+  });
+
+  app.get('/api/announcements', async (req, res) => {
+    const announcements = storage.getActiveAnnouncements();
+    return res.json({ announcements });
+  });
+
+  // Admin terminal command execution
+  app.post('/api/admin/terminal', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const { command } = req.body;
+      if (!command || typeof command !== 'string') {
+        return res.status(400).json({ error: 'Command is required' });
+      }
+
+      const result = storage.executeAdminCommand(req.userId, command.trim());
+      return res.json(result);
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message || 'Failed to execute command' });
+    }
+  });
+
   // Chat endpoints
   app.get('/api/chat/:room', async (req: any, res) => {
     const room = req.params.room as ChatRoom;
@@ -588,6 +623,26 @@ export async function registerRoutes(
       const { message, imageUrl, linkUrl } = validation.data;
       const sessionId = req.headers['x-session-id'];
       const userId = sessionId ? storage.storage.sessions.get(sessionId) : undefined;
+      
+      // Check for /announce command (admin only)
+      if (message.startsWith('/announce ') || message === '/announce') {
+        if (!userId) {
+          return res.status(401).json({ error: 'Must be logged in to use commands' });
+        }
+        
+        const user = storage.getUser(userId);
+        if (!user || user.role !== 'admin') {
+          return res.status(403).json({ error: 'Only admins can use /announce' });
+        }
+        
+        const announceMessage = message.substring('/announce '.length).trim();
+        if (!announceMessage) {
+          return res.status(400).json({ error: 'Announcement message cannot be empty. Usage: /announce <message>' });
+        }
+        
+        const announcement = storage.createAnnouncement(userId, announceMessage);
+        return res.json({ success: true, announcement, isCommand: true });
+      }
       
       // Check access for protected rooms
       if (room !== 'global') {

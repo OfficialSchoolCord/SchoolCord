@@ -21,7 +21,7 @@ interface AdminPanelProps {
 }
 
 export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'users' | 'blocked' | 'quests' | 'passwords'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'users' | 'blocked' | 'quests' | 'passwords' | 'announcements' | 'terminal'>('analytics');
   const [analytics, setAnalytics] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [blockedSites, setBlockedSites] = useState<any[]>([]);
@@ -33,6 +33,9 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
   const [newLevel, setNewLevel] = useState('');
   const [resettingQuestUserId, setResettingQuestUserId] = useState<string | null>(null);
   const [passwords, setPasswords] = useState<any[]>([]);
+  const [announcementMessage, setAnnouncementMessage] = useState('');
+  const [terminalInput, setTerminalInput] = useState('');
+  const [terminalHistory, setTerminalHistory] = useState<Array<{ command: string; output: string; success: boolean }>>([]);
 
   const isAdmin = currentUserRole === 'admin';
 
@@ -242,6 +245,63 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
     }
   };
 
+  const handleSendAnnouncement = async () => {
+    if (!announcementMessage.trim()) {
+      alert('Announcement message cannot be empty');
+      return;
+    }
+    try {
+      await fetch('/api/admin/announce', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': sessionId,
+        },
+        body: JSON.stringify({ message: announcementMessage }),
+      });
+      setAnnouncementMessage('');
+      alert('Announcement sent! It will display on all users\' screens for 5 seconds.');
+    } catch (error) {
+      console.error('Failed to send announcement:', error);
+      alert('Failed to send announcement');
+    }
+  };
+
+  const handleTerminalCommand = async () => {
+    if (!terminalInput.trim()) return;
+    
+    const command = terminalInput.trim();
+    setTerminalInput('');
+    
+    try {
+      const res = await fetch('/api/admin/terminal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': sessionId,
+        },
+        body: JSON.stringify({ command }),
+      });
+      const data = await res.json();
+      
+      if (command.toLowerCase() === 'clear') {
+        setTerminalHistory([]);
+      } else {
+        setTerminalHistory(prev => [...prev, {
+          command,
+          output: data.output || data.error || 'No output',
+          success: data.success || false,
+        }]);
+      }
+    } catch (error) {
+      setTerminalHistory(prev => [...prev, {
+        command,
+        output: 'Error: Failed to execute command',
+        success: false,
+      }]);
+    }
+  };
+
   const getRoleBadge = (role: UserRole) => {
     switch (role) {
       case 'admin':
@@ -329,6 +389,30 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
             >
               <Shield className="w-4 h-4 inline mr-2" />
               Passwords
+            </button>
+            <button
+              onClick={() => setActiveTab('announcements')}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+                activeTab === 'announcements'
+                  ? 'text-white border-b-2 border-primary'
+                  : 'text-white/60 hover:text-white'
+              }`}
+              data-testid="tab-announcements"
+            >
+              <Shield className="w-4 h-4 inline mr-2" />
+              Announcements
+            </button>
+            <button
+              onClick={() => setActiveTab('terminal')}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+                activeTab === 'terminal'
+                  ? 'text-white border-b-2 border-primary'
+                  : 'text-white/60 hover:text-white'
+              }`}
+              data-testid="tab-terminal"
+            >
+              <Shield className="w-4 h-4 inline mr-2" />
+              Terminal
             </button>
           </>
         )}
@@ -625,6 +709,95 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'announcements' && isAdmin && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-lg bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30">
+              <div className="flex items-center gap-3 mb-3">
+                <Shield className="w-6 h-6 text-blue-400" />
+                <div>
+                  <h3 className="text-white font-semibold">Create Announcement</h3>
+                  <p className="text-sm text-white/60">Send a message to all users for 5 seconds</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Input
+                  value={announcementMessage}
+                  onChange={(e) => setAnnouncementMessage(e.target.value)}
+                  placeholder="Enter announcement message..."
+                  className="bg-white/5 border-white/10 text-white"
+                  maxLength={200}
+                  data-testid="input-announcement"
+                />
+                <p className="text-xs text-white/50">{announcementMessage.length}/200 characters</p>
+                <Button 
+                  onClick={handleSendAnnouncement}
+                  className="w-full"
+                  data-testid="button-send-announcement"
+                >
+                  Send Announcement
+                </Button>
+              </div>
+            </div>
+            <div className="p-3 rounded-lg bg-white/5">
+              <p className="text-sm text-white/70">
+                💡 Tip: You can also use <code className="bg-black/20 px-1 rounded">/announce &lt;message&gt;</code> in any chat room
+              </p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'terminal' && isAdmin && (
+          <div className="space-y-4 h-full flex flex-col">
+            <div className="p-4 rounded-lg bg-gradient-to-r from-green-500/20 to-teal-500/20 border border-green-500/30">
+              <div className="flex items-center gap-3">
+                <Shield className="w-6 h-6 text-green-400" />
+                <div>
+                  <h3 className="text-white font-semibold">Admin Terminal</h3>
+                  <p className="text-sm text-white/60">Execute admin commands. Type 'help' for available commands.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 bg-black/40 rounded-lg p-4 font-mono text-sm overflow-y-auto">
+              {terminalHistory.length === 0 ? (
+                <div className="text-green-400">
+                  Admin Terminal v1.0<br/>
+                  Type 'help' to see available commands.
+                </div>
+              ) : (
+                terminalHistory.map((entry, idx) => (
+                  <div key={idx} className="mb-3">
+                    <div className="text-blue-400">$ {entry.command}</div>
+                    <div className={entry.success ? 'text-green-400' : 'text-red-400'} style={{ whiteSpace: 'pre-wrap' }}>
+                      {entry.output}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <span className="text-green-400 font-mono self-center">$</span>
+              <Input
+                value={terminalInput}
+                onChange={(e) => setTerminalInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleTerminalCommand()}
+                placeholder="Enter command..."
+                className="flex-1 bg-black/40 border-green-500/30 text-green-400 font-mono"
+                data-testid="input-terminal"
+              />
+              <Button
+                onClick={handleTerminalCommand}
+                variant="outline"
+                className="border-green-500/30 text-green-400"
+                data-testid="button-terminal-execute"
+              >
+                Execute
+              </Button>
             </div>
           </div>
         )}

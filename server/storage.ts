@@ -90,6 +90,156 @@ function saveQuests() {
   }
 }
 
+// Announcement functions
+export function createAnnouncement(userId: string, message: string): Announcement {
+  const user = getUser(userId);
+  const announcement: Announcement = {
+    id: `announce-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    userId,
+    username: user?.username || 'Admin',
+    message,
+    timestamp: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 5000).toISOString(), // 5 seconds
+  };
+  
+  storage.announcements.push(announcement);
+  
+  // Clean up expired announcements after 10 seconds
+  setTimeout(() => {
+    storage.announcements = storage.announcements.filter(a => a.id !== announcement.id);
+  }, 10000);
+  
+  return announcement;
+}
+
+export function getActiveAnnouncements(): Announcement[] {
+  const now = new Date().toISOString();
+  return storage.announcements.filter(a => a.expiresAt > now);
+}
+
+// Admin terminal commands
+export function executeAdminCommand(userId: string, command: string): { success: boolean; output: string } {
+  const user = getUser(userId);
+  if (!user || user.role !== 'admin') {
+    return { success: false, output: 'Unauthorized: Admin access required' };
+  }
+
+  const parts = command.split(' ');
+  const cmd = parts[0].toLowerCase();
+  const args = parts.slice(1);
+
+  switch (cmd) {
+    case 'help':
+      return {
+        success: true,
+        output: `Available Commands:
+- help: Show this help message
+- users: List all users
+- ban <username>: Ban a user
+- unban <username>: Unban a user
+- setrole <username> <role>: Set user role (user/mod/admin)
+- setlevel <username> <level>: Set user level
+- resetpw <username> <newpassword>: Reset user password
+- stats: Show server statistics
+- announce <message>: Create announcement (or use /announce in chat)
+- clear: Clear terminal output`
+      };
+
+    case 'users':
+      const users = getAllUsers();
+      const userList = users.map(u => 
+        `${u.username} (Level ${u.level || 1}) - ${u.role || 'user'}${u.isBanned ? ' [BANNED]' : ''}`
+      ).join('\n');
+      return { success: true, output: userList || 'No users found' };
+
+    case 'ban':
+      if (!args[0]) return { success: false, output: 'Usage: ban <username>' };
+      const banUser = getUserByUsername(args[0]);
+      if (!banUser) return { success: false, output: `User '${args[0]}' not found` };
+      banUserById(banUser.id);
+      return { success: true, output: `Successfully banned user '${args[0]}'` };
+
+    case 'unban':
+      if (!args[0]) return { success: false, output: 'Usage: unban <username>' };
+      const unbanUser = getUserByUsername(args[0]);
+      if (!unbanUser) return { success: false, output: `User '${args[0]}' not found` };
+      unbanUserById(unbanUser.id);
+      return { success: true, output: `Successfully unbanned user '${args[0]}'` };
+
+    case 'setrole':
+      if (!args[0] || !args[1]) return { success: false, output: 'Usage: setrole <username> <role>' };
+      const roleUser = getUserByUsername(args[0]);
+      if (!roleUser) return { success: false, output: `User '${args[0]}' not found` };
+      if (!['user', 'mod', 'admin'].includes(args[1])) {
+        return { success: false, output: 'Role must be: user, mod, or admin' };
+      }
+      setUserRole(roleUser.id, args[1] as UserRole);
+      return { success: true, output: `Set ${args[0]}'s role to ${args[1]}` };
+
+    case 'setlevel':
+      if (!args[0] || !args[1]) return { success: false, output: 'Usage: setlevel <username> <level>' };
+      const levelUser = getUserByUsername(args[0]);
+      if (!levelUser) return { success: false, output: `User '${args[0]}' not found` };
+      const level = parseInt(args[1]);
+      if (isNaN(level) || level < 1 || level > 5000) {
+        return { success: false, output: 'Level must be between 1 and 5000' };
+      }
+      changeUserLevel(levelUser.id, level);
+      return { success: true, output: `Set ${args[0]}'s level to ${level}` };
+
+    case 'resetpw':
+      if (!args[0] || !args[1]) return { success: false, output: 'Usage: resetpw <username> <newpassword>' };
+      const pwUser = getUserByUsername(args[0]);
+      if (!pwUser) return { success: false, output: `User '${args[0]}' not found` };
+      if (args[1].length < 6) return { success: false, output: 'Password must be at least 6 characters' };
+      changeUserPassword(pwUser.id, args[1]);
+      return { success: true, output: `Reset password for ${args[0]}` };
+
+    case 'stats':
+      const analytics = getAnalytics();
+      return {
+        success: true,
+        output: `Server Statistics:
+Total Users: ${analytics.totalUsers}
+Active Users: ${analytics.activeUsers}
+Banned Users: ${analytics.bannedUsers}
+Total Page Views: ${analytics.totalPageViews}`
+      };
+
+    case 'announce':
+      const announceMsg = args.join(' ');
+      if (!announceMsg) return { success: false, output: 'Usage: announce <message>' };
+      createAnnouncement(userId, announceMsg);
+      return { success: true, output: `Announcement created: "${announceMsg}"` };
+
+    case 'clear':
+      return { success: true, output: '' };
+
+    default:
+      return { success: false, output: `Unknown command: ${cmd}. Type 'help' for available commands.` };
+  }
+}
+
+function banUserById(userId: string) {
+  storage.bannedUsers.add(userId);
+  updateUser(userId, { isBanned: true });
+}
+
+function unbanUserById(userId: string) {
+  storage.bannedUsers.delete(userId);
+  storage.tempBans.delete(userId);
+  updateUser(userId, { isBanned: false });
+}
+
+interface Announcement {
+  id: string;
+  userId: string;
+  username: string;
+  message: string;
+  timestamp: string;
+  expiresAt: string;
+}
+
 // In-memory storage with persistence
 export const storage = {
   users: loadUsers(),
@@ -102,6 +252,7 @@ export const storage = {
   tempBans: new Map<string, number>(), // userId -> unban timestamp
   chatMessages: loadChatMessages(),
   quests: loadQuests(),
+  announcements: [] as Announcement[],
 };
 
 // Initialize admin account
