@@ -292,8 +292,9 @@ export default function Home() {
               <SettingsPanel 
                 privacyMode={privacyMode}
                 onTogglePrivacy={togglePrivacyMode}
-                onClearHistory={handleClearHistory}
+                onClearHistory={clearHistory}
                 onClose={handleClosePanel} 
+                sessionId={sessionId}
               />
             </div>
           </div>

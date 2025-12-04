@@ -3,7 +3,7 @@ import { LevelUpNotification } from './LevelUpNotification';
 
 
 import { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, Shield, Users, Loader2, Image as ImageIcon, Link as LinkIcon, Star, Crown, Flame } from 'lucide-react';
+import { Send, MessageSquare, Shield, Users, Loader2, Image as ImageIcon, Link as LinkIcon, Star, Crown, Flame, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -25,7 +25,9 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
   const [showImageInput, setShowImageInput] = useState(false);
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [levelUpData, setLevelUpData] = useState<any>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const canAccessMod = userRole === 'mod' || userRole === 'admin';
   const canAccessAdmin = userRole === 'admin';
@@ -114,6 +116,40 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be smaller than 5MB');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        setImageUrl(base64);
+        setShowImageInput(true);
+        setUploadingImage(false);
+      };
+      reader.onerror = () => {
+        alert('Failed to read image file');
+        setUploadingImage(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      alert('Failed to upload image');
+      setUploadingImage(false);
+    }
+  };
+
   const messages: ChatMessage[] = messagesData?.messages || [];
 
   const renderMessages = () => {
@@ -128,7 +164,15 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
       );
     }
 
-    const BadgeIcon = ({ badge }: { badge?: string }) => {
+    const BadgeIcon = ({ badge, userId }: { badge?: string; userId?: string }) => {
+      // Show custom badge only for current user
+      const customBadge = localStorage.getItem('illing-star-custom-badge');
+      const currentUserId = sessionId ? (messagesData as any)?.currentUserId : undefined;
+      
+      if (customBadge && userId === currentUserId) {
+        return <span className="text-sm">{customBadge}</span>;
+      }
+      
       if (!badge) return null;
       if (badge === 'star') return <Star className="w-3 h-3 text-yellow-400" fill="currentColor" />;
       if (badge === 'shield') return <Shield className="w-3 h-3 text-blue-400" fill="currentColor" />;
@@ -151,7 +195,7 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
             {msg.level && (
               <span className="text-xs text-primary font-bold">Lv.{msg.level}</span>
             )}
-            <BadgeIcon badge={msg.badge} />
+            <BadgeIcon badge={msg.badge} userId={msg.userId} />
             <span className="text-xs text-white/40">
               {new Date(msg.timestamp).toLocaleTimeString([], {
                 hour: '2-digit',
@@ -256,11 +300,33 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
         )}
         
         <div className="flex gap-2">
+          <input
+            type="file"
+            ref={imageInputRef}
+            onChange={handleImageUpload}
+            accept="image/*"
+            className="hidden"
+          />
+          <Button
+            onClick={() => imageInputRef.current?.click()}
+            size="icon"
+            variant="ghost"
+            className="shrink-0 text-white/70 hover:text-white"
+            disabled={uploadingImage}
+            title="Upload image from device"
+          >
+            {uploadingImage ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Upload className="w-4 h-4" />
+            )}
+          </Button>
           <Button
             onClick={() => setShowImageInput(!showImageInput)}
             size="icon"
             variant="ghost"
             className="shrink-0 text-white/70 hover:text-white"
+            title="Image URL"
           >
             <ImageIcon className="w-4 h-4" />
           </Button>
@@ -269,6 +335,7 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
             size="icon"
             variant="ghost"
             className="shrink-0 text-white/70 hover:text-white"
+            title="Add link"
           >
             <LinkIcon className="w-4 h-4" />
           </Button>

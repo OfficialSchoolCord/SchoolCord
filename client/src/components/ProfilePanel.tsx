@@ -26,10 +26,45 @@ export function ProfilePanel({ visitCount, onClose, user, onSignIn, onSignOut, o
   const [questsLoading, setQuestsLoading] = useState(false);
   const [resetTimeRemaining, setResetTimeRemaining] = useState(0);
   const [dailyQuestsCompleted, setDailyQuestsCompleted] = useState(0);
+  const [uploadingProfilePic, setUploadingProfilePic] = useState(false);
+  const profilePicInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = () => {
     onUpdateProfile(editUsername, editProfilePic);
     setIsEditing(false);
+  };
+
+  const handleProfilePicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Image must be smaller than 2MB');
+      return;
+    }
+
+    setUploadingProfilePic(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        setEditProfilePic(base64);
+        setUploadingProfilePic(false);
+      };
+      reader.onerror = () => {
+        alert('Failed to read image file');
+        setUploadingProfilePic(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      alert('Failed to upload image');
+      setUploadingProfilePic(false);
+    }
   };
 
   useEffect(() => {
@@ -194,6 +229,22 @@ export function ProfilePanel({ visitCount, onClose, user, onSignIn, onSignOut, o
                       placeholder="Profile Picture URL"
                       data-testid="input-edit-profile-pic"
                     />
+                    <input
+                      type="file"
+                      ref={profilePicInputRef}
+                      onChange={handleProfilePicUpload}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => profilePicInputRef.current?.click()}
+                      className="w-full border-white/20 hover:bg-white/10"
+                      disabled={uploadingProfilePic}
+                    >
+                      {uploadingProfilePic ? 'Uploading...' : 'Upload from Device'}
+                    </Button>
                     <div className="flex gap-2">
                       <Button size="sm" onClick={handleSave} className="flex-1" data-testid="button-save-profile">Save</Button>
                       <Button size="sm" variant="outline" onClick={() => setIsEditing(false)} className="flex-1" data-testid="button-cancel-edit">Cancel</Button>
