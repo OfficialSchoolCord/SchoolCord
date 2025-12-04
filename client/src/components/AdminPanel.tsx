@@ -1,23 +1,34 @@
-
 import { useState, useEffect } from 'react';
-import { X, Users, BarChart, Shield, Ban } from 'lucide-react';
+import { X, Users, BarChart, Shield, Ban, Crown, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import type { UserRole } from '@shared/schema';
 
 interface AdminPanelProps {
   onClose: () => void;
   sessionId: string;
+  currentUserRole: UserRole;
 }
 
-export function AdminPanel({ onClose, sessionId }: AdminPanelProps) {
+export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<'analytics' | 'users' | 'blocked'>('analytics');
   const [analytics, setAnalytics] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [blockedSites, setBlockedSites] = useState<any[]>([]);
   const [newBlockUrl, setNewBlockUrl] = useState('');
   const [blockReason, setBlockReason] = useState('');
+
+  const isAdmin = currentUserRole === 'admin';
 
   useEffect(() => {
     loadData();
@@ -81,6 +92,22 @@ export function AdminPanel({ onClose, sessionId }: AdminPanelProps) {
     }
   };
 
+  const handleSetRole = async (userId: string, role: UserRole) => {
+    try {
+      await fetch('/api/admin/set-role', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': sessionId,
+        },
+        body: JSON.stringify({ userId, role }),
+      });
+      loadData();
+    } catch (error) {
+      console.error('Failed to set role:', error);
+    }
+  };
+
   const handleBlockWebsite = async () => {
     if (!newBlockUrl.trim()) return;
     try {
@@ -116,131 +143,174 @@ export function AdminPanel({ onClose, sessionId }: AdminPanelProps) {
     }
   };
 
+  const getRoleBadge = (role: UserRole) => {
+    switch (role) {
+      case 'admin':
+        return <Badge className="bg-primary/20 text-primary border-primary/30"><Crown className="w-3 h-3 mr-1" />Admin</Badge>;
+      case 'mod':
+        return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30"><Shield className="w-3 h-3 mr-1" />Mod</Badge>;
+      default:
+        return <Badge variant="outline" className="text-white/60 border-white/20"><UserCheck className="w-3 h-3 mr-1" />User</Badge>;
+    }
+  };
+
   return (
-    <div 
-      className="fixed inset-0 ml-16 flex items-center justify-center z-40 animate-fade-in"
-      style={{
-        background: 'rgba(0, 0, 0, 0.7)',
-        backdropFilter: 'blur(8px)',
-      }}
-    >
-      <Card 
-        className="w-full max-w-3xl border-white/10 max-h-[80vh]"
-        style={{
-          background: 'rgba(30, 20, 40, 0.95)',
-          backdropFilter: 'blur(20px)',
-        }}
-      >
-        <div className="flex items-center justify-between p-4 border-b border-white/10">
-          <h2 className="text-xl font-semibold text-white">Admin Panel</h2>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="text-white/70 hover:text-white hover:bg-white/10"
-          >
-            <X className="w-5 h-5" />
-          </Button>
+    <div className="flex flex-col h-full p-4 gap-4">
+      <div className="flex items-center justify-between pb-3 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
+            <Shield className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-white" data-testid="text-admin-title">Admin Panel</h2>
+            <p className="text-sm text-white/60">{isAdmin ? 'Full access' : 'Moderator access'}</p>
+          </div>
         </div>
+      </div>
 
-        <div className="flex border-b border-white/10">
-          <button
-            onClick={() => setActiveTab('analytics')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'analytics'
-                ? 'text-white border-b-2 border-primary'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >
-            <BarChart className="w-4 h-4 inline mr-2" />
-            Analytics
-          </button>
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'users'
-                ? 'text-white border-b-2 border-primary'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >
-            <Users className="w-4 h-4 inline mr-2" />
-            Users
-          </button>
-          <button
-            onClick={() => setActiveTab('blocked')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'blocked'
-                ? 'text-white border-b-2 border-primary'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >
-            <Shield className="w-4 h-4 inline mr-2" />
-            Blocked Sites
-          </button>
-        </div>
+      <div className="flex border-b border-white/10">
+        <button
+          onClick={() => setActiveTab('analytics')}
+          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+            activeTab === 'analytics'
+              ? 'text-white border-b-2 border-primary'
+              : 'text-white/60 hover:text-white'
+          }`}
+          data-testid="tab-analytics"
+        >
+          <BarChart className="w-4 h-4 inline mr-2" />
+          Analytics
+        </button>
+        <button
+          onClick={() => setActiveTab('users')}
+          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+            activeTab === 'users'
+              ? 'text-white border-b-2 border-primary'
+              : 'text-white/60 hover:text-white'
+          }`}
+          data-testid="tab-users"
+        >
+          <Users className="w-4 h-4 inline mr-2" />
+          Users
+        </button>
+        <button
+          onClick={() => setActiveTab('blocked')}
+          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+            activeTab === 'blocked'
+              ? 'text-white border-b-2 border-primary'
+              : 'text-white/60 hover:text-white'
+          }`}
+          data-testid="tab-blocked"
+        >
+          <Shield className="w-4 h-4 inline mr-2" />
+          Blocked Sites
+        </button>
+      </div>
 
-        <ScrollArea className="p-6">
-          {activeTab === 'analytics' && analytics && (
-            <div className="grid grid-cols-2 gap-4">
-              <StatCard label="Total Users" value={analytics.totalUsers} />
-              <StatCard label="Active Users" value={analytics.activeUsers} />
-              <StatCard label="Total Page Views" value={analytics.totalPageViews} />
-              <StatCard label="Banned Users" value={analytics.bannedUsers} />
-            </div>
-          )}
+      <ScrollArea className="flex-1">
+        {activeTab === 'analytics' && analytics && (
+          <div className="grid grid-cols-2 gap-4">
+            <StatCard label="Total Users" value={analytics.totalUsers} data-testid="stat-total-users" />
+            <StatCard label="Active Users" value={analytics.activeUsers} data-testid="stat-active-users" />
+            <StatCard label="Total Page Views" value={analytics.totalPageViews} data-testid="stat-page-views" />
+            <StatCard label="Banned Users" value={analytics.bannedUsers} data-testid="stat-banned-users" />
+          </div>
+        )}
 
-          {activeTab === 'users' && (
-            <div className="space-y-3">
-              {users.map((user) => (
+        {activeTab === 'users' && (
+          <div className="space-y-3">
+            {users.length === 0 ? (
+              <div className="text-center py-8 text-white/50">
+                No users found
+              </div>
+            ) : (
+              users.map((user) => (
                 <div
                   key={user.id}
                   className="flex items-center justify-between p-3 rounded-lg bg-white/5"
+                  data-testid={`user-row-${user.id}`}
                 >
-                  <div>
-                    <p className="text-white font-medium">{user.username}</p>
-                    <p className="text-sm text-white/50">
-                      {user.isAdmin ? 'Admin' : 'User'} • {user.isBanned ? 'Banned' : 'Active'}
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <p className="text-white font-medium">{user.username}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {getRoleBadge(user.role || 'user')}
+                        {user.isBanned && (
+                          <Badge variant="destructive" className="text-xs">
+                            <Ban className="w-3 h-3 mr-1" />Banned
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  {!user.isAdmin && (
-                    <Button
-                      size="sm"
-                      variant={user.isBanned ? 'outline' : 'destructive'}
-                      onClick={() => user.isBanned ? handleUnbanUser(user.id) : handleBanUser(user.id)}
-                    >
-                      <Ban className="w-4 h-4 mr-1" />
-                      {user.isBanned ? 'Unban' : 'Ban'}
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {isAdmin && user.role !== 'admin' && (
+                      <Select
+                        value={user.role || 'user'}
+                        onValueChange={(value) => handleSetRole(user.id, value as UserRole)}
+                      >
+                        <SelectTrigger className="w-24 h-8 bg-white/5 border-white/10 text-white text-xs" data-testid={`select-role-${user.id}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="user">User</SelectItem>
+                          <SelectItem value="mod">Mod</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {user.role !== 'admin' && (
+                      <Button
+                        size="sm"
+                        variant={user.isBanned ? 'outline' : 'destructive'}
+                        onClick={() => user.isBanned ? handleUnbanUser(user.id) : handleBanUser(user.id)}
+                        data-testid={`button-ban-${user.id}`}
+                      >
+                        <Ban className="w-4 h-4 mr-1" />
+                        {user.isBanned ? 'Unban' : 'Ban'}
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
+        )}
 
-          {activeTab === 'blocked' && (
-            <div className="space-y-4">
+        {activeTab === 'blocked' && (
+          <div className="space-y-4">
+            {isAdmin && (
               <div className="space-y-2">
                 <Input
                   value={newBlockUrl}
                   onChange={(e) => setNewBlockUrl(e.target.value)}
                   placeholder="Enter URL to block"
                   className="bg-white/5 border-white/10 text-white"
+                  data-testid="input-block-url"
                 />
                 <Input
                   value={blockReason}
                   onChange={(e) => setBlockReason(e.target.value)}
                   placeholder="Reason (optional)"
                   className="bg-white/5 border-white/10 text-white"
+                  data-testid="input-block-reason"
                 />
-                <Button onClick={handleBlockWebsite} className="w-full">
+                <Button onClick={handleBlockWebsite} className="w-full" data-testid="button-block-website">
                   Block Website
                 </Button>
               </div>
-              <div className="space-y-2">
-                {blockedSites.map((site) => (
+            )}
+            <div className="space-y-2">
+              {blockedSites.length === 0 ? (
+                <div className="text-center py-8 text-white/50">
+                  No blocked websites
+                </div>
+              ) : (
+                blockedSites.map((site) => (
                   <div
                     key={site.id}
                     className="flex items-center justify-between p-3 rounded-lg bg-white/5"
+                    data-testid={`blocked-site-${site.id}`}
                   >
                     <div>
                       <p className="text-white font-medium">{site.url}</p>
@@ -248,27 +318,30 @@ export function AdminPanel({ onClose, sessionId }: AdminPanelProps) {
                         <p className="text-sm text-white/50">{site.reason}</p>
                       )}
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleUnblockWebsite(site.id)}
-                    >
-                      Unblock
-                    </Button>
+                    {isAdmin && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleUnblockWebsite(site.id)}
+                        data-testid={`button-unblock-${site.id}`}
+                      >
+                        Unblock
+                      </Button>
+                    )}
                   </div>
-                ))}
-              </div>
+                ))
+              )}
             </div>
-          )}
-        </ScrollArea>
-      </Card>
+          </div>
+        )}
+      </ScrollArea>
     </div>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function StatCard({ label, value, ...props }: { label: string; value: number; [key: string]: any }) {
   return (
-    <div className="p-4 rounded-lg bg-white/5">
+    <div className="p-4 rounded-lg bg-white/5" {...props}>
       <p className="text-white/60 text-sm">{label}</p>
       <p className="text-2xl font-bold text-white mt-1">{value}</p>
     </div>
