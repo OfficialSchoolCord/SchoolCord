@@ -240,8 +240,8 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
           onComplete={() => setLevelUpData(null)} 
         />
       )}
-      <div className="flex flex-col h-full">
-      <Tabs value={activeRoom} onValueChange={(v) => setActiveRoom(v as ChatRoom)} className="flex-1 flex flex-col">
+      <div className="flex flex-col h-full max-h-full overflow-hidden">
+      <Tabs value={activeRoom} onValueChange={(v) => setActiveRoom(v as ChatRoom)} className="flex-1 flex flex-col min-h-0">
         <div className="p-4 pb-0">
           <TabsList className="grid w-full grid-cols-3 bg-white/5">
             <TabsTrigger value="global" className="data-[state=active]:bg-primary/20">
@@ -259,21 +259,21 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
           </TabsList>
         </div>
 
-        <TabsContent value="global" className="flex-1 flex flex-col mt-0 min-h-0">
+        <TabsContent value="global" className="flex-1 mt-0 overflow-hidden flex flex-col">
           <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-4" onScroll={handleScroll}>
             {renderMessages()}
             <div ref={messagesEndRef} />
           </div>
         </TabsContent>
 
-        <TabsContent value="mod" className="flex-1 flex flex-col mt-0 min-h-0">
+        <TabsContent value="mod" className="flex-1 mt-0 overflow-hidden flex flex-col">
           <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-4" onScroll={handleScroll}>
             {renderMessages()}
             <div ref={messagesEndRef} />
           </div>
         </TabsContent>
 
-        <TabsContent value="admin" className="flex-1 flex flex-col mt-0 min-h-0">
+        <TabsContent value="admin" className="flex-1 mt-0 overflow-hidden flex flex-col">
           <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-4" onScroll={handleScroll}>
             {renderMessages()}
             <div ref={messagesEndRef} />
