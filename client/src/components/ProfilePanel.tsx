@@ -124,6 +124,18 @@ export function ProfilePanel({ visitCount, onClose, user, onSignIn, onSignOut, o
 
               <div className="space-y-4">
                 <StatItem 
+                  icon={<Star className="w-5 h-5" />}
+                  label="Level"
+                  value={`${user.level || 1}`}
+                  valueColor="text-yellow-400"
+                />
+                <StatItem 
+                  icon={<Sparkles className="w-5 h-5" />}
+                  label="XP"
+                  value={`${user.xp || 0}`}
+                  valueColor="text-purple-400"
+                />
+                <StatItem 
                   icon={<Globe className="w-5 h-5" />}
                   label="Pages Visited"
                   value={visitCount.toString()}
@@ -132,12 +144,6 @@ export function ProfilePanel({ visitCount, onClose, user, onSignIn, onSignOut, o
                   icon={<Clock className="w-5 h-5" />}
                   label="Session Started"
                   value={new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                />
-                <StatItem 
-                  icon={<Sparkles className="w-5 h-5" />}
-                  label="Browser Status"
-                  value="Active"
-                  valueColor="text-green-400"
                 />
               </div>
 
