@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, User, Star, Clock, Globe, Sparkles, Target, CheckCircle, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -30,11 +30,20 @@ export function ProfilePanel({ visitCount, onClose, user, onSignIn, onSignOut, o
   const profilePicInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = () => {
-    onUpdateProfile(editUsername, editProfilePic);
-    setIsEditing(false);
+    try {
+      if (!editUsername.trim()) {
+        alert('Username cannot be empty');
+        return;
+      }
+      onUpdateProfile(editUsername, editProfilePic);
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to save profile:', error);
+      alert('Failed to save profile. Please try again.');
+    }
   };
 
-  const handleProfilePicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProfilePicUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -52,16 +61,24 @@ export function ProfilePanel({ visitCount, onClose, user, onSignIn, onSignOut, o
     try {
       const reader = new FileReader();
       reader.onload = (event) => {
-        const base64 = event.target?.result as string;
-        setEditProfilePic(base64);
-        setUploadingProfilePic(false);
+        try {
+          const base64 = event.target?.result as string;
+          setEditProfilePic(base64);
+          setUploadingProfilePic(false);
+        } catch (err) {
+          console.error('Failed to process image:', err);
+          alert('Failed to process image');
+          setUploadingProfilePic(false);
+        }
       };
       reader.onerror = () => {
+        console.error('Failed to read image file');
         alert('Failed to read image file');
         setUploadingProfilePic(false);
       };
       reader.readAsDataURL(file);
     } catch (error) {
+      console.error('Failed to upload image:', error);
       alert('Failed to upload image');
       setUploadingProfilePic(false);
     }
@@ -83,7 +100,10 @@ export function ProfilePanel({ visitCount, onClose, user, onSignIn, onSignOut, o
   }, [resetTimeRemaining]);
 
   const loadQuests = async () => {
-    if (!sessionId) return;
+    if (!sessionId) {
+      console.warn('No session ID available for loading quests');
+      return;
+    }
     setQuestsLoading(true);
     try {
       const res = await fetch('/api/quests', {
@@ -95,12 +115,14 @@ export function ProfilePanel({ visitCount, onClose, user, onSignIn, onSignOut, o
       if (!contentType || !contentType.includes('application/json')) {
         console.error('Quest API returned non-JSON response');
         setQuests([]);
+        setQuestsLoading(false);
         return;
       }
       
       if (!res.ok) {
         console.error('Quest API error:', res.status);
         setQuests([]);
+        setQuestsLoading(false);
         return;
       }
       
@@ -204,8 +226,16 @@ export function ProfilePanel({ visitCount, onClose, user, onSignIn, onSignOut, o
                       color: 'white',
                     }}
                   >
-                    {user.profilePicture ? (
-                      <img src={user.profilePicture} alt={user.username} className="w-full h-full object-cover rounded-full" />
+                    {user?.profilePicture ? (
+                      <img 
+                        src={user.profilePicture} 
+                        alt={user?.username || 'User'} 
+                        className="w-full h-full object-cover rounded-full"
+                        onError={(e) => {
+                          console.error('Failed to load profile picture');
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
                     ) : (
                       <User className="w-10 h-10" />
                     )}
@@ -252,8 +282,8 @@ export function ProfilePanel({ visitCount, onClose, user, onSignIn, onSignOut, o
                   </div>
                 ) : (
                   <>
-                    <h3 className="text-lg font-semibold text-white" data-testid="text-username">{user.username}</h3>
-                    <p className="text-sm text-white/50">{user.isAdmin ? 'Administrator' : 'Cloud Browser User'}</p>
+                    <h3 className="text-lg font-semibold text-white" data-testid="text-username">{user?.username || 'User'}</h3>
+                    <p className="text-sm text-white/50">{user?.isAdmin ? 'Administrator' : 'Cloud Browser User'}</p>
                     <Button
                       size="sm"
                       variant="ghost"
