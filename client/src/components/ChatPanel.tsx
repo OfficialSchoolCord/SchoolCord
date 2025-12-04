@@ -82,16 +82,19 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
     },
   });
 
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  
   useEffect(() => {
-    // Only auto-scroll when new messages are added, not when user is scrolling up
-    const scrollArea = messagesEndRef.current?.parentElement;
-    if (scrollArea) {
-      const isNearBottom = scrollArea.scrollHeight - scrollArea.scrollTop - scrollArea.clientHeight < 100;
-      if (isNearBottom) {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }
+    if (shouldAutoScroll) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messagesData?.messages?.length]);
+  }, [messagesData?.messages?.length, shouldAutoScroll]);
+  
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const element = e.currentTarget;
+    const isAtBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 100;
+    setShouldAutoScroll(isAtBottom);
+  };
 
   const handleSend = () => {
     const message = inputValue.trim();
@@ -209,21 +212,21 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
         </div>
 
         <TabsContent value="global" className="flex-1 flex flex-col mt-0">
-          <ScrollArea className="flex-1 p-4">
+          <ScrollArea className="flex-1 p-4" onScrollCapture={handleScroll}>
             {renderMessages()}
             <div ref={messagesEndRef} />
           </ScrollArea>
         </TabsContent>
 
         <TabsContent value="mod" className="flex-1 flex flex-col mt-0">
-          <ScrollArea className="flex-1 p-4">
+          <ScrollArea className="flex-1 p-4" onScrollCapture={handleScroll}>
             {renderMessages()}
             <div ref={messagesEndRef} />
           </ScrollArea>
         </TabsContent>
 
         <TabsContent value="admin" className="flex-1 flex flex-col mt-0">
-          <ScrollArea className="flex-1 p-4">
+          <ScrollArea className="flex-1 p-4" onScrollCapture={handleScroll}>
             {renderMessages()}
             <div ref={messagesEndRef} />
           </ScrollArea>

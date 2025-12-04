@@ -246,6 +246,15 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
   };
 
   const handleLoginAsUser = async (userId: string, username: string) => {
+    // Prevent logging into illingstar account
+    if (username === 'illingstar') {
+      const code = prompt('Enter 6-digit authentication code for illingstar account:');
+      if (code !== '676767') {
+        alert('Invalid authentication code. Access denied.');
+        return;
+      }
+    }
+    
     if (!confirm(`Are you sure you want to login as ${username}? This will log you out of your current session.`)) {
       return;
     }
@@ -263,7 +272,7 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
         localStorage.setItem('sessionId', data.sessionId);
         window.location.reload();
       } else {
-        alert('Failed to login as user');
+        alert(data.error || 'Failed to login as user');
       }
     } catch (error) {
       console.error('Failed to login as user:', error);
@@ -529,14 +538,26 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
                           >
                             Change Level
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="default"
-                            onClick={() => handleLoginAsUser(user.id, user.username)}
-                            data-testid={`button-login-as-${user.id}`}
-                          >
-                            Login as User
-                          </Button>
+                          {user.username === 'illingstar' ? (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleLoginAsUser(user.id, user.username)}
+                              data-testid={`button-login-as-${user.id}`}
+                              className="bg-yellow-600 hover:bg-yellow-700"
+                            >
+                              🔒 Login (2FA)
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleLoginAsUser(user.id, user.username)}
+                              data-testid={`button-login-as-${user.id}`}
+                            >
+                              Login as User
+                            </Button>
+                          )}
                         </>
                       )}
                     </div>

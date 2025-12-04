@@ -598,6 +598,12 @@ export async function registerRoutes(
         return res.status(404).json({ error: 'User not found' });
       }
 
+      // Prevent non-illingstar admins from logging into illingstar account
+      const currentUser = storage.getUser(req.userId);
+      if (user.username === 'illingstar' && currentUser?.username !== 'illingstar') {
+        return res.status(403).json({ error: 'Cannot login to protected account' });
+      }
+
       // Create new session for the target user
       const newSessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       storage.storage.sessions.set(newSessionId, userId);
