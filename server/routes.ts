@@ -584,6 +584,30 @@ export async function registerRoutes(
     }
   });
 
+  // Admin login as user (for backup purposes)
+  app.post('/api/admin/login-as-user', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+      }
+
+      const user = storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Create new session for the target user
+      const newSessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      storage.storage.sessions.set(newSessionId, userId);
+      
+      return res.json({ success: true, sessionId: newSessionId });
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to login as user' });
+    }
+  });
+
   // Chat endpoints
   app.get('/api/chat/:room', async (req: any, res) => {
     const room = req.params.room as ChatRoom;

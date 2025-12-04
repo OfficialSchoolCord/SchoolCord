@@ -83,8 +83,15 @@ export function ChatPanel({ sessionId, userRole = 'user' }: ChatPanelProps) {
   });
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messagesData]);
+    // Only auto-scroll when new messages are added, not when user is scrolling up
+    const scrollArea = messagesEndRef.current?.parentElement;
+    if (scrollArea) {
+      const isNearBottom = scrollArea.scrollHeight - scrollArea.scrollTop - scrollArea.clientHeight < 100;
+      if (isNearBottom) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  }, [messagesData?.messages?.length]);
 
   const handleSend = () => {
     const message = inputValue.trim();

@@ -245,6 +245,32 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
     }
   };
 
+  const handleLoginAsUser = async (userId: string, username: string) => {
+    if (!confirm(`Are you sure you want to login as ${username}? This will log you out of your current session.`)) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/admin/login-as-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': sessionId,
+        },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json();
+      if (data.success && data.sessionId) {
+        localStorage.setItem('sessionId', data.sessionId);
+        window.location.reload();
+      } else {
+        alert('Failed to login as user');
+      }
+    } catch (error) {
+      console.error('Failed to login as user:', error);
+      alert('Failed to login as user');
+    }
+  };
+
   const handleSendAnnouncement = async () => {
     if (!announcementMessage.trim()) {
       alert('Announcement message cannot be empty');
@@ -502,6 +528,14 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
                             data-testid={`button-change-level-${user.id}`}
                           >
                             Change Level
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleLoginAsUser(user.id, user.username)}
+                            data-testid={`button-login-as-${user.id}`}
+                          >
+                            Login as User
                           </Button>
                         </>
                       )}
