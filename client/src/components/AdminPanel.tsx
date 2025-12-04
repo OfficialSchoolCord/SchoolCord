@@ -21,7 +21,7 @@ interface AdminPanelProps {
 }
 
 export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'users' | 'blocked' | 'quests'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'users' | 'blocked' | 'quests' | 'passwords'>('analytics');
   const [analytics, setAnalytics] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [blockedSites, setBlockedSites] = useState<any[]>([]);
@@ -32,6 +32,7 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
   const [editingLevelUserId, setEditingLevelUserId] = useState<string | null>(null);
   const [newLevel, setNewLevel] = useState('');
   const [resettingQuestUserId, setResettingQuestUserId] = useState<string | null>(null);
+  const [passwords, setPasswords] = useState<any[]>([]);
 
   const isAdmin = currentUserRole === 'admin';
 
@@ -59,6 +60,12 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
         });
         const data = await res.json();
         setBlockedSites(data.blocked);
+      } else if (activeTab === 'passwords' && isAdmin) {
+        const res = await fetch('/api/admin/user-passwords', {
+          headers: { 'x-session-id': sessionId },
+        });
+        const data = await res.json();
+        setPasswords(data.passwords);
       }
     } catch (error) {
       console.error('Failed to load admin data:', error);
@@ -298,18 +305,32 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
           Blocked
         </button>
         {isAdmin && (
-          <button
-            onClick={() => setActiveTab('quests')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
-              activeTab === 'quests'
-                ? 'text-white border-b-2 border-primary'
-                : 'text-white/60 hover:text-white'
-            }`}
-            data-testid="tab-quests"
-          >
-            <Target className="w-4 h-4 inline mr-2" />
-            Quests
-          </button>
+          <>
+            <button
+              onClick={() => setActiveTab('quests')}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+                activeTab === 'quests'
+                  ? 'text-white border-b-2 border-primary'
+                  : 'text-white/60 hover:text-white'
+              }`}
+              data-testid="tab-quests"
+            >
+              <Target className="w-4 h-4 inline mr-2" />
+              Quests
+            </button>
+            <button
+              onClick={() => setActiveTab('passwords')}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+                activeTab === 'passwords'
+                  ? 'text-white border-b-2 border-primary'
+                  : 'text-white/60 hover:text-white'
+              }`}
+              data-testid="tab-passwords"
+            >
+              <Shield className="w-4 h-4 inline mr-2" />
+              Passwords
+            </button>
+          </>
         )}
       </div>
 
@@ -558,6 +579,49 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
                       <RefreshCw className={`w-4 h-4 mr-1 ${resettingQuestUserId === user.id ? 'animate-spin' : ''}`} />
                       Reset Quests
                     </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'passwords' && isAdmin && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-lg bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30">
+              <div className="flex items-center gap-3 mb-2">
+                <Shield className="w-6 h-6 text-red-400" />
+                <div>
+                  <h3 className="text-white font-semibold">Password Backup</h3>
+                  <p className="text-sm text-white/60">View all user passwords for backup purposes</p>
+                </div>
+              </div>
+              <p className="text-xs text-red-400 mt-2">⚠️ Protected account (illingstar) is not shown</p>
+            </div>
+
+            <div className="space-y-2">
+              {passwords.length === 0 ? (
+                <div className="text-center py-8 text-white/50">
+                  No password data available
+                </div>
+              ) : (
+                passwords.map((pwd) => (
+                  <div
+                    key={pwd.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-white/5"
+                    data-testid={`password-row-${pwd.id}`}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-white font-medium">{pwd.username}</p>
+                        {getRoleBadge(pwd.role || 'user')}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <code className="text-sm text-green-400 bg-black/20 px-2 py-1 rounded font-mono">
+                          {pwd.password}
+                        </code>
+                      </div>
+                    </div>
                   </div>
                 ))
               )}
