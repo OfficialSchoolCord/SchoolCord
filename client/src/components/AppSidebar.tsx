@@ -20,8 +20,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import type { NavItemId } from '@shared/schema';
 
 interface AppSidebarProps {
-  activeNav: NavItemId;
+  activeNav: NavItemId | null;
   onNavChange: (id: NavItemId) => void;
+  user?: any;
 }
 
 const navItems: { id: NavItemId; label: string; icon: typeof Home }[] = [

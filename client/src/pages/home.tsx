@@ -13,14 +13,15 @@ import { AdminPanel } from '@/components/AdminPanel';
 import { AuthModal } from '@/components/AuthModal';
 import { useToast } from '@/hooks/use-toast';
 import { useBrowserSettings } from '@/hooks/use-browser-settings';
-import { apiRequest } from '@/lib/queryClient';
 import type { NavItemId, HistoryItem, FetchResponse } from '@shared/schema';
 
 export default function Home() {
-  const [activePanel, setActivePanel] = useState<NavItemId | null>(null);
+  const [activePanel, setActivePanel] = useState<NavItemId | null>('home');
+  const [showBrowser, setShowBrowser] = useState(false);
   const [currentUrl, setCurrentUrl] = useState('');
   const [pageContent, setPageContent] = useState<string | null>(null);
   const [pageTitle, setPageTitle] = useState('');
+  const [pageError, setPageError] = useState<string | null>(null);
   const [isSearchResult, setIsSearchResult] = useState(false);
   const [searchUrl, setSearchUrl] = useState<string | null>(null);
   const [history, setHistory] = useState<string[]>([]);
@@ -30,7 +31,13 @@ export default function Home() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { toast } = useToast();
-  const { settings, updateSettings } = useBrowserSettings();
+  const { 
+    privacyMode, 
+    togglePrivacyMode, 
+    savedHistory, 
+    addToHistory, 
+    clearHistory 
+  } = useBrowserSettings();
 
   useEffect(() => {
     const savedSessionId = localStorage.getItem('sessionId');
@@ -113,20 +120,24 @@ export default function Home() {
   };
 
   const fetchMutation = useMutation({
-    mutationFn: async (url: string) => {
+    mutationFn: async (url: string): Promise<FetchResponse> => {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
       if (sessionId) {
         headers['x-session-id'] = sessionId;
       }
-      return await apiRequest<FetchResponse>('/api/browse', {
+      const response = await fetch('/api/browse', {
         method: 'POST',
         headers,
         body: JSON.stringify({ url }),
       });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.statusText}`);
+      }
+      return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: FetchResponse) => {
       if (data.success) {
         setPageContent(data.content || null);
         setPageTitle(data.title || '');
