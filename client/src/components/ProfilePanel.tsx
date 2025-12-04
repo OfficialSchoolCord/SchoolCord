@@ -64,7 +64,7 @@ export function ProfilePanel({ visitCount, onClose, user, onSignIn, onSignOut, o
               </Button>
             </div>
           ) : (
-            <>
+            <div>
               <div className="flex flex-col items-center mb-8">
                 <Avatar className="w-20 h-20 mb-4">
                   <AvatarFallback 
@@ -161,7 +161,7 @@ export function ProfilePanel({ visitCount, onClose, user, onSignIn, onSignOut, o
                   </Button>
                 )}
               </div>
-            </>
+            </div>
           )}
         </div>
       </Card>
