@@ -196,11 +196,23 @@
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
 }
 
-/* Star Animation Classes */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
 .animate-twinkle {
   animation: twinkle 3s ease-in-out infinite;
 }
@@ -235,8 +247,8 @@
 
 /* Space Gradient Background */
 .space-gradient {
-  background: linear-gradient(135deg, 
-    hsl(280, 60%, 12%) 0%, 
+  background: linear-gradient(135deg,
+    hsl(280, 60%, 12%) 0%,
     hsl(260, 50%, 10%) 25%,
     hsl(280, 55%, 15%) 50%,
     hsl(348, 60%, 18%) 75%,

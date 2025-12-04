@@ -15,6 +15,7 @@ import { ChatPanel } from '@/components/ChatPanel';
 import { AuthModal } from '@/components/AuthModal';
 import { LevelUpNotification } from '@/components/LevelUpNotification';
 import { LeaderboardPanel } from '@/components/LeaderboardPanel';
+import { OnboardingTutorial } from '@/components/OnboardingTutorial';
 import { useToast } from '@/hooks/use-toast';
 import { useBrowserSettings } from '@/hooks/use-browser-settings';
 import type { NavItemId, HistoryItem, FetchResponse, UserRole } from '@shared/schema';
@@ -34,7 +35,8 @@ export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [levelUpData, setLevelUpData] = useState<any>(null);
+  const [levelUpData, setLevelUpData] = useState<{ newLevel: number } | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const { toast } = useToast();
   const { 
     privacyMode, 
@@ -72,15 +74,24 @@ export default function Home() {
     }
   };
 
-  const handleAuthSuccess = (userData: any, sid: string) => {
+  const handleAuthSuccess = (userData: any, newSessionId: string) => {
     setUser(userData);
-    setSessionId(sid);
-    localStorage.setItem('sessionId', sid);
+    setSessionId(newSessionId);
+    localStorage.setItem('sessionId', newSessionId);
     setShowAuthModal(false);
-    toast({
-      title: 'Welcome!',
-      description: `Signed in as ${userData.username}`,
-    });
+
+    // Show onboarding for new users (check if they just registered)
+    const isNewUser = !localStorage.getItem(`onboarding_completed_${userData.id}`);
+    if (isNewUser) {
+      setShowOnboarding(true);
+    }
+  };
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    if (user) {
+      localStorage.setItem(`onboarding_completed_${user.id}`, 'true');
+    }
   };
 
   const handleSignOut = async () => {
@@ -162,7 +173,7 @@ export default function Home() {
         };
         addToHistory(newHistoryItem);
         setVisitCount(prevCount => prevCount + 1);
-        
+
         // Check for level up
         if (data.levelUp && data.levelUp.newLevel > data.levelUp.oldLevel) {
           setLevelUpData(data.levelUp);
@@ -376,7 +387,11 @@ export default function Home() {
   return (
     <div className="min-h-screen overflow-hidden relative">
       <Starfield />
-      
+
+      {showOnboarding && (
+        <OnboardingTutorial onComplete={handleOnboardingComplete} />
+      )}
+
       {levelUpData && (
         <LevelUpNotification 
           newLevel={levelUpData.newLevel} 
