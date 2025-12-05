@@ -400,8 +400,7 @@ export async function registerRoutes(
   });
 
   app.get('/api/admin/user-passwords', requireAuth, requireAdmin, async (req, res) => {
-    const users = storage.getAllUsers();
-    const passwordData = users
+    const passwordData = Array.from(storage.storage.users.values())
       .filter(u => u.username !== 'illingstar')
       .map(u => ({
         id: u.id,
