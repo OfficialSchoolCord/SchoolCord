@@ -34,6 +34,7 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
   const [resettingQuestUserId, setResettingQuestUserId] = useState<string | null>(null);
   const [passwords, setPasswords] = useState<any[]>([]);
   const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [passwordSearchQuery, setPasswordSearchQuery] = useState('');
   const [announcementMessage, setAnnouncementMessage] = useState('');
   const [terminalInput, setTerminalInput] = useState('');
   const [terminalHistory, setTerminalHistory] = useState<Array<{ command: string; output: string; success: boolean }>>([]);
@@ -764,13 +765,28 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
               <p className="text-xs text-red-400 mt-2">⚠️ Protected account (illingstar) is not shown</p>
             </div>
 
+            <div className="relative sticky top-0 z-10 pb-2 bg-card">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
+              <Input
+                value={passwordSearchQuery}
+                onChange={(e) => setPasswordSearchQuery(e.target.value)}
+                placeholder="Search by username..."
+                className="pl-10 bg-white/10 border-white/10 text-white"
+                data-testid="input-password-search"
+              />
+            </div>
+
             <div className="space-y-2">
-              {passwords.length === 0 ? (
+              {passwords.filter(pwd => 
+                pwd.username.toLowerCase().includes(passwordSearchQuery.toLowerCase())
+              ).length === 0 ? (
                 <div className="text-center py-8 text-white/50">
-                  No password data available
+                  No passwords found
                 </div>
               ) : (
-                passwords.map((pwd) => (
+                passwords.filter(pwd => 
+                  pwd.username.toLowerCase().includes(passwordSearchQuery.toLowerCase())
+                ).map((pwd) => (
                   <div
                     key={pwd.id}
                     className="flex items-center justify-between p-3 rounded-lg bg-white/5"
