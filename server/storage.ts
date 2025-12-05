@@ -425,7 +425,9 @@ export function changeUserLevel(userId: string, newLevel: number): User | null {
   
   user.level = newLevel;
   
-  // Recalculate XP based on level to maintain consistency
+  // Update XP to match the new level so it persists correctly
+  user.xp = calculateXPForLevel(newLevel);
+  
   // Award badges based on new level
   user.badges = [];
   if (newLevel >= 10) user.badges.push('star');
@@ -510,6 +512,20 @@ export function calculateLevel(xp: number): number {
   if (xp < 500000) return Math.floor(285 + (xp - 100000) / 1000);
   
   return Math.min(5000, Math.floor(685 + (xp - 500000) / 5000));
+}
+
+// Calculate minimum XP required for a specific level (reverse of calculateLevel)
+export function calculateXPForLevel(level: number): number {
+  if (level <= 1) return 0;
+  if (level < 5) return 100 + (level - 2) * 50;
+  if (level < 15) return 300 + (level - 5) * 70;
+  if (level < 35) return 1000 + (level - 15) * 100;
+  if (level < 65) return 3000 + (level - 35) * 150;
+  if (level < 135) return 7500 + (level - 65) * 250;
+  if (level < 285) return 25000 + (level - 135) * 500;
+  if (level < 685) return 100000 + (level - 285) * 1000;
+  if (level <= 5000) return 500000 + (level - 685) * 5000;
+  return 500000 + (5000 - 685) * 5000; // Max XP for level 5000
 }
 
 export function addXP(userId: string, amount: number): { newLevel: number; oldLevel: number; newXP: number } | null {
