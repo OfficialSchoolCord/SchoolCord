@@ -264,6 +264,10 @@ export default function Home() {
   const handleNavChange = useCallback((id: NavItemId) => {
     if (id === 'home') {
       handleCloseBrowser();
+      setSelectedServerId(null);
+      setSelectedDMThreadId(null);
+      setActivePanel('home');
+      return;
     } else if (id === 'search' && showBrowser) {
       return;
     }
