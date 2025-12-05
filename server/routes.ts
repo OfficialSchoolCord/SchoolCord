@@ -435,13 +435,18 @@ export async function registerRoutes(
   });
 
   // Role management (admin only)
-  app.post('/api/admin/set-role', requireAuth, requireAdmin, async (req, res) => {
+  app.post('/api/admin/set-role', requireAuth, requireAdmin, async (req: any, res) => {
     try {
       const { userId, role } = req.body;
       
       const validation = userRoleSchema.safeParse(role);
       if (!validation.success) {
         return res.status(400).json({ error: 'Invalid role. Must be user, mod, or admin' });
+      }
+
+      // Prevent changing role of protected accounts unless it's the account owner
+      if (storage.isProtectedUser(userId) && req.userId !== userId) {
+        return res.status(403).json({ error: 'Cannot change role of protected account' });
       }
       
       const user = storage.setUserRole(userId, validation.data);
@@ -456,12 +461,17 @@ export async function registerRoutes(
   });
 
   // Password management (admin only)
-  app.post('/api/admin/change-password', requireAuth, requireAdmin, async (req, res) => {
+  app.post('/api/admin/change-password', requireAuth, requireAdmin, async (req: any, res) => {
     try {
       const { userId, newPassword } = req.body;
       
       if (!newPassword || newPassword.length < 6) {
         return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      }
+
+      // Prevent changing password of protected accounts unless it's the account owner
+      if (storage.isProtectedUser(userId) && req.userId !== userId) {
+        return res.status(403).json({ error: 'Cannot change password of protected account' });
       }
       
       const user = storage.changeUserPassword(userId, newPassword);
@@ -586,9 +596,8 @@ export async function registerRoutes(
         return res.status(404).json({ error: 'User not found' });
       }
 
-      // Prevent non-illingstar admins from logging into illingstar account
-      const currentUser = storage.getUser(req.userId);
-      if (user.username === 'illingstar' && currentUser?.username !== 'illingstar') {
+      // Prevent anyone from logging into protected accounts
+      if (storage.isProtectedUser(userId)) {
         return res.status(403).json({ error: 'Cannot login to protected account' });
       }
 
@@ -599,6 +608,31 @@ export async function registerRoutes(
       return res.json({ success: true, sessionId: newSessionId });
     } catch (error) {
       return res.status(500).json({ error: 'Failed to login as user' });
+    }
+  });
+
+  // Delete user account (admin only)
+  app.post('/api/admin/delete-user', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const { userId, transferToUserId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+      }
+
+      // Prevent deletion of protected accounts
+      if (storage.isProtectedUser(userId)) {
+        return res.status(403).json({ error: 'Cannot delete protected account' });
+      }
+
+      const success = storage.deleteUserAccount(userId, transferToUserId);
+      if (!success) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      return res.json({ success: true });
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to delete user' });
     }
   });
 

@@ -456,53 +456,19 @@ export const storage = {
 
 // Initialize admin user if needed
 function initializeAdminUser() {
-  const adminPassword = process.env.ADMIN_PASSWORD;
-
-  if (!adminPassword) {
-    // Generate a temporary password
-    const tempPassword = crypto.randomUUID();
-    console.log('\n============================================================');
-    console.log('ADMIN_PASSWORD not set. Generated temporary admin password:');
-    console.log('  Username: illingstar');
-    console.log(`  Password: ${tempPassword}`);
-    console.log('Set ADMIN_PASSWORD environment variable for persistent admin access.');
-    console.log('============================================================\n');
-
-    const existingAdmin = getUserByUsername('illingstar');
-    if (!existingAdmin) {
-      createUser('illingstar', tempPassword, 'admin@illingstar.com');
-      const admin = getUserByUsername('illingstar');
-      if (admin) {
-        admin.role = 'admin';
-        admin.isAdmin = true;
-      }
-    }
-  } else {
-    const existingAdmin = getUserByUsername('illingstar');
-    if (!existingAdmin) {
-      createUser('illingstar', adminPassword, 'admin@illingstar.com');
-      const admin = getUserByUsername('illingstar');
-      if (admin) {
-        admin.role = 'admin';
-        admin.isAdmin = true;
-      }
-    } else {
-      // Update password if it changed
-      existingAdmin.password = hashPassword(adminPassword);
-      existingAdmin.role = 'admin';
-      existingAdmin.isAdmin = true;
-    }
-  }
-
-  // Set SchoolCord as owner/admin
+  // Set SchoolCord as primary admin with enhanced security
   const schoolCord = getUserByUsername('SchoolCord');
   if (schoolCord) {
     schoolCord.role = 'admin';
     schoolCord.isAdmin = true;
+    // Set strong password from environment or keep existing
+    if (process.env.ADMIN_PASSWORD) {
+      schoolCord.password = hashPassword(process.env.ADMIN_PASSWORD);
+    }
   }
 }
 
-// PIN management
+// PIN management with SchoolCord protection
 export function setAdminPin(userId: string, pin: string): boolean {
   const user = getUser(userId);
   if (!user || user.role !== 'admin') {
@@ -519,6 +485,15 @@ export function verifyAdminPin(userId: string, pin: string): boolean {
 
 export function getAdminPin(userId: string): string | undefined {
   return storage.adminPins.get(userId);
+}
+
+// Protected usernames that cannot be deleted or have credentials changed by others
+const PROTECTED_USERNAMES = ['SchoolCord'];
+
+export function isProtectedUser(userId: string): boolean {
+  const user = getUser(userId);
+  if (!user) return false;
+  return PROTECTED_USERNAMES.includes(user.username);
 }
 
 // Initialize storage
@@ -1791,6 +1766,82 @@ export function deleteServerRole(roleId: string, userId: string): boolean {
     }
   }
   return false;
+}
+
+// Delete user account and transfer server ownership
+export function deleteUserAccount(userId: string, transferToUserId?: string): boolean {
+  const user = storage.users.get(userId);
+  if (!user) return false;
+
+  // Transfer ownership of all servers owned by this user
+  for (const [serverId, server] of storage.servers.entries()) {
+    if (server.ownerId === userId) {
+      if (transferToUserId) {
+        server.ownerId = transferToUserId;
+        storage.servers.set(serverId, server);
+        
+        // Add new owner as member if not already
+        const members = storage.serverMembers.get(serverId) || [];
+        if (!members.some(m => m.userId === transferToUserId)) {
+          members.push({
+            id: `member-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            serverId,
+            userId: transferToUserId,
+            roles: ['owner'],
+            joinedAt: new Date().toISOString(),
+          });
+          storage.serverMembers.set(serverId, members);
+        }
+      } else {
+        // Delete server if no transfer target
+        deleteServer(serverId, userId);
+      }
+    }
+  }
+
+  // Remove from all server memberships
+  for (const [serverId, members] of storage.serverMembers.entries()) {
+    const filtered = members.filter(m => m.userId !== userId);
+    storage.serverMembers.set(serverId, filtered);
+  }
+
+  // Delete user data
+  storage.users.delete(userId);
+  storage.quickApps.delete(userId);
+  storage.history.delete(userId);
+  storage.quests.delete(userId);
+  storage.userSettings.delete(userId);
+  storage.adminPins.delete(userId);
+  
+  // Remove all sessions
+  for (const [sessionId, sUserId] of storage.sessions.entries()) {
+    if (sUserId === userId) {
+      storage.sessions.delete(sessionId);
+    }
+  }
+
+  // Remove friend relationships
+  for (const [id, request] of storage.friends.entries()) {
+    if (request.requesterId === userId || request.addresseeId === userId) {
+      storage.friends.delete(id);
+    }
+  }
+
+  // Remove DM threads
+  for (const [threadId, thread] of storage.dmThreads.entries()) {
+    if (thread.memberIds.includes(userId)) {
+      storage.dmThreads.delete(threadId);
+      storage.dmMessages.delete(threadId);
+    }
+  }
+
+  saveUsers();
+  saveServers();
+  saveFriends();
+  saveDMs();
+  saveUserSettings();
+  
+  return true;
 }
 
 export function assignRoleToMember(memberId: string, userId: string, roleId: string): any {
