@@ -1,8 +1,8 @@
-import type { 
+import type {
   User, QuickApp, BlockedWebsite, HistoryItem, UserRole, ChatMessage, ChatRoom, Quest, UserQuestData,
   FriendRequest, FriendStatus, UserSettings, MessagePrivacy,
   DMThread, DMMessage,
-  Server, ServerMember, ServerRole, Channel, ChannelMessage, ChannelType, BotConfig
+  Server, ServerMember, ServerRole, Channel, ChannelMessage, ChannelType, BotConfig, Announcement
 } from "@shared/schema";
 import { DEFAULT_QUESTS, QUEST_RESET_INTERVAL_MS, DAILY_QUEST_LIMIT } from "@shared/schema";
 import fs from 'fs';
@@ -53,7 +53,7 @@ function loadUsers(): Map<string, User & { password: string }> {
     if (fs.existsSync(USERS_FILE)) {
       const data = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
       const users = new Map<string, User & { password: string }>(Object.entries(data));
-      
+
       let needsSave = false;
       for (const [id, user] of users.entries()) {
         if (user.password && !isPasswordHashed(user.password)) {
@@ -63,13 +63,13 @@ function loadUsers(): Map<string, User & { password: string }> {
           needsSave = true;
         }
       }
-      
+
       if (needsSave) {
         const migratedData = Object.fromEntries(users.entries());
         fs.writeFileSync(USERS_FILE, JSON.stringify(migratedData, null, 2));
         console.log('Password migration complete');
       }
-      
+
       return users;
     }
   } catch (error) {
@@ -230,8 +230,8 @@ interface ServerData {
   bots: Record<string, BotConfig[]>;
 }
 
-function loadServers(): { 
-  servers: Map<string, Server>; 
+function loadServers(): {
+  servers: Map<string, Server>;
   members: Map<string, ServerMember[]>;
   roles: Map<string, ServerRole[]>;
   channels: Map<string, Channel[]>;
@@ -253,11 +253,11 @@ function loadServers(): {
   } catch (error) {
     console.error('Error loading servers:', error);
   }
-  return { 
-    servers: new Map(), 
-    members: new Map(), 
-    roles: new Map(), 
-    channels: new Map(), 
+  return {
+    servers: new Map(),
+    members: new Map(),
+    roles: new Map(),
+    channels: new Map(),
     channelMessages: new Map(),
     bots: new Map(),
   };
@@ -336,7 +336,7 @@ export function executeAdminCommand(userId: string, command: string): { success:
 
     case 'users':
       const users = getAllUsers();
-      const userList = users.map(u => 
+      const userList = users.map(u =>
         `${u.username} (Level ${u.level || 1}) - ${u.role || 'user'}${u.isBanned ? ' [BANNED]' : ''}`
       ).join('\n');
       return { success: true, output: userList || 'No users found' };
@@ -420,19 +420,6 @@ function unbanUserById(userId: string) {
   updateUser(userId, { isBanned: false });
 }
 
-interface Announcement {
-  id: string;
-  userId: string;
-  username: string;
-  message: string;
-  timestamp: string;
-  expiresAt: string;
-}
-
-// Load DM and server data
-const dmData = loadDMs();
-const serverData = loadServers();
-
 // In-memory storage with persistence
 export const storage = {
   users: loadUsers(),
@@ -446,52 +433,102 @@ export const storage = {
   chatMessages: loadChatMessages(),
   quests: loadQuests(),
   announcements: [] as Announcement[],
-  
+
   // Friends system
   friends: loadFriends(),
   userSettings: loadUserSettings(),
-  
+
   // DM system
-  dmThreads: dmData.threads,
-  dmMessages: dmData.messages,
-  
+  dmThreads: loadDMs().threads,
+  dmMessages: loadDMs().messages,
+
   // Servers system
-  servers: serverData.servers,
-  serverMembers: serverData.members,
-  serverRoles: serverData.roles,
-  channels: serverData.channels,
-  channelMessages: serverData.channelMessages,
-  bots: serverData.bots,
+  servers: loadServers().servers,
+  serverMembers: loadServers().members,
+  serverRoles: loadServers().roles,
+  channels: loadServers().channels,
+  channelMessages: loadServers().channelMessages,
+  bots: loadServers().bots,
+
+  // Admin PINs
+  adminPins: new Map<string, string>(), // userId -> PIN
 };
 
-// Initialize admin account with hashed password from environment variable
-const adminId = "admin-illingstar";
-let adminRawPassword = process.env.ADMIN_PASSWORD;
-if (!adminRawPassword) {
-  adminRawPassword = crypto.randomUUID();
-  console.log('='.repeat(60));
-  console.log('ADMIN_PASSWORD not set. Generated temporary admin password:');
-  console.log(`  Username: illingstar`);
-  console.log(`  Password: ${adminRawPassword}`);
-  console.log('Set ADMIN_PASSWORD environment variable for persistent admin access.');
-  console.log('='.repeat(60));
+// Initialize admin user if needed
+function initializeAdminUser() {
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminPassword) {
+    // Generate a temporary password
+    const tempPassword = crypto.randomUUID();
+    console.log('\n============================================================');
+    console.log('ADMIN_PASSWORD not set. Generated temporary admin password:');
+    console.log('  Username: illingstar');
+    console.log(`  Password: ${tempPassword}`);
+    console.log('Set ADMIN_PASSWORD environment variable for persistent admin access.');
+    console.log('============================================================\n');
+
+    const existingAdmin = getUserByUsername('illingstar');
+    if (!existingAdmin) {
+      createUser('illingstar', tempPassword, 'admin@illingstar.com');
+      const admin = getUserByUsername('illingstar');
+      if (admin) {
+        admin.role = 'admin';
+        admin.isAdmin = true;
+      }
+    }
+  } else {
+    const existingAdmin = getUserByUsername('illingstar');
+    if (!existingAdmin) {
+      createUser('illingstar', adminPassword, 'admin@illingstar.com');
+      const admin = getUserByUsername('illingstar');
+      if (admin) {
+        admin.role = 'admin';
+        admin.isAdmin = true;
+      }
+    } else {
+      // Update password if it changed
+      existingAdmin.password = hashPassword(adminPassword);
+      existingAdmin.role = 'admin';
+      existingAdmin.isAdmin = true;
+    }
+  }
+
+  // Set SchoolCord as owner/admin
+  const schoolCord = getUserByUsername('SchoolCord');
+  if (schoolCord) {
+    schoolCord.role = 'admin';
+    schoolCord.isAdmin = true;
+  }
 }
-const adminHashedPassword = hashPassword(adminRawPassword);
-storage.users.set(adminId, {
-  id: adminId,
-  username: "illingstar",
-  password: adminHashedPassword,
-  email: "admin@illingstar.com",
-  role: 'admin',
-  isAdmin: true,
-  profilePicture: undefined,
-  googleAccountLinked: false,
-  createdAt: new Date().toISOString(),
-  lastLogin: undefined,
-  level: 10000000000,
-  xp: 49999999999315,
-  badges: ['star', 'shield', 'goat', 'crown', 'fire'],
-});
+
+// PIN management
+export function setAdminPin(userId: string, pin: string): boolean {
+  const user = getUser(userId);
+  if (!user || user.role !== 'admin') {
+    return false;
+  }
+  storage.adminPins.set(userId, pin);
+  return true;
+}
+
+export function verifyAdminPin(userId: string, pin: string): boolean {
+  const storedPin = storage.adminPins.get(userId);
+  return storedPin === pin;
+}
+
+export function getAdminPin(userId: string): string | undefined {
+  return storage.adminPins.get(userId);
+}
+
+// Initialize storage
+initializeAdminUser();
+
+// Set PIN for SchoolCord
+const schoolCord = getUserByUsername('SchoolCord');
+if (schoolCord) {
+  setAdminPin(schoolCord.id, '123456');
+}
 
 export function getUser(userId: string) {
   return storage.users.get(userId);
@@ -756,7 +793,7 @@ export function addXP(userId: string, amount: number): { newLevel: number; oldLe
   const oldLevel = user.level || 1;
   const oldXP = user.xp || 0;
   const newXP = oldXP + amount;
-  
+
   // Allow admins to continue leveling up beyond max
   const newLevel = user.role === 'admin' ? calculateLevel(newXP) : Math.min(calculateLevel(newXP), 10000000000);
 
@@ -995,7 +1032,7 @@ export function sendFriendRequest(requesterId: string, addresseeId: string): Fri
   if (!addresseeSettings.allowFriendRequests) {
     return { error: 'User has disabled friend requests' };
   }
-  
+
   // Check if already friends or pending request
   for (const request of storage.friends.values()) {
     if ((request.requesterId === requesterId && request.addresseeId === addresseeId) ||
@@ -1011,7 +1048,7 @@ export function sendFriendRequest(requesterId: string, addresseeId: string): Fri
       }
     }
   }
-  
+
   const id = `friend-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const request: FriendRequest = {
     id,
@@ -1021,7 +1058,7 @@ export function sendFriendRequest(requesterId: string, addresseeId: string): Fri
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-  
+
   storage.friends.set(id, request);
   saveFriends();
   return request;
@@ -1038,7 +1075,7 @@ export function acceptFriendRequest(requestId: string, userId: string): FriendRe
   if (request.status !== 'pending') {
     return { error: 'Request is not pending' };
   }
-  
+
   request.status = 'accepted' as FriendStatus;
   request.updatedAt = new Date().toISOString();
   storage.friends.set(requestId, request);
@@ -1050,7 +1087,7 @@ export function declineFriendRequest(requestId: string, userId: string): boolean
   const request = storage.friends.get(requestId);
   if (!request) return false;
   if (request.addresseeId !== userId) return false;
-  
+
   storage.friends.delete(requestId);
   saveFriends();
   return true;
@@ -1064,7 +1101,7 @@ export function blockUser(userId: string, blockUserId: string): FriendRequest {
       storage.friends.delete(id);
     }
   }
-  
+
   const id = `friend-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const blocked: FriendRequest = {
     id,
@@ -1074,7 +1111,7 @@ export function blockUser(userId: string, blockUserId: string): FriendRequest {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-  
+
   storage.friends.set(id, blocked);
   saveFriends();
   return blocked;
@@ -1093,17 +1130,17 @@ export function unblockUser(userId: string, blockedUserId: string): boolean {
 
 export function getFriends(userId: string): (User & { friendshipId: string })[] {
   const friends: (User & { friendshipId: string })[] = [];
-  
+
   for (const [id, request] of storage.friends.entries()) {
     if (request.status !== 'accepted') continue;
-    
+
     let friendId: string | null = null;
     if (request.requesterId === userId) {
       friendId = request.addresseeId;
     } else if (request.addresseeId === userId) {
       friendId = request.requesterId;
     }
-    
+
     if (friendId) {
       const user = storage.users.get(friendId);
       if (user) {
@@ -1112,13 +1149,13 @@ export function getFriends(userId: string): (User & { friendshipId: string })[] 
       }
     }
   }
-  
+
   return friends;
 }
 
 export function getPendingFriendRequests(userId: string): (FriendRequest & { requesterUser?: Partial<User> })[] {
   const requests: (FriendRequest & { requesterUser?: Partial<User> })[] = [];
-  
+
   for (const request of storage.friends.values()) {
     if (request.addresseeId === userId && request.status === 'pending') {
       const requester = storage.users.get(request.requesterId);
@@ -1130,19 +1167,19 @@ export function getPendingFriendRequests(userId: string): (FriendRequest & { req
       }
     }
   }
-  
+
   return requests;
 }
 
 export function getSentFriendRequests(userId: string): FriendRequest[] {
   const requests: FriendRequest[] = [];
-  
+
   for (const request of storage.friends.values()) {
     if (request.requesterId === userId && request.status === 'pending') {
       requests.push(request);
     }
   }
-  
+
   return requests;
 }
 
@@ -1186,7 +1223,7 @@ export function removeFriend(userId: string, friendId: string): boolean {
 export function getOrCreateDMThread(userId1: string, userId2: string): DMThread {
   // Sort user IDs to create consistent thread lookup
   const sortedIds = [userId1, userId2].sort();
-  
+
   // Check for existing thread
   for (const thread of storage.dmThreads.values()) {
     const threadIds = [...thread.memberIds].sort();
@@ -1194,7 +1231,7 @@ export function getOrCreateDMThread(userId1: string, userId2: string): DMThread 
       return thread;
     }
   }
-  
+
   // Create new thread
   const id = `dm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const thread: DMThread = {
@@ -1203,7 +1240,7 @@ export function getOrCreateDMThread(userId1: string, userId2: string): DMThread 
     lastMessageAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
   };
-  
+
   storage.dmThreads.set(id, thread);
   storage.dmMessages.set(id, []);
   saveDMs();
@@ -1212,12 +1249,12 @@ export function getOrCreateDMThread(userId1: string, userId2: string): DMThread 
 
 export function getDMThreads(userId: string): (DMThread & { otherUser?: Partial<User> })[] {
   const threads: (DMThread & { otherUser?: Partial<User> })[] = [];
-  
+
   for (const thread of storage.dmThreads.values()) {
     if (thread.memberIds.includes(userId)) {
       const otherUserId = thread.memberIds.find(id => id !== userId);
       const otherUser = otherUserId ? storage.users.get(otherUserId) : null;
-      
+
       if (otherUser) {
         const { password, ...userWithoutPassword } = otherUser;
         threads.push({ ...thread, otherUser: userWithoutPassword });
@@ -1226,8 +1263,8 @@ export function getDMThreads(userId: string): (DMThread & { otherUser?: Partial<
       }
     }
   }
-  
-  return threads.sort((a, b) => 
+
+  return threads.sort((a, b) =>
     new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
   );
 }
@@ -1245,7 +1282,7 @@ export function sendDMMessage(threadId: string, senderId: string, message: strin
   if (!thread || !thread.memberIds.includes(senderId)) {
     return null;
   }
-  
+
   // Check message privacy settings for recipient
   const recipientId = thread.memberIds.find(id => id !== senderId);
   if (recipientId) {
@@ -1257,7 +1294,7 @@ export function sendDMMessage(threadId: string, senderId: string, message: strin
       return null;
     }
   }
-  
+
   const id = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const dmMessage: DMMessage = {
     id,
@@ -1267,16 +1304,16 @@ export function sendDMMessage(threadId: string, senderId: string, message: strin
     timestamp: new Date().toISOString(),
     imageUrl,
   };
-  
+
   const messages = storage.dmMessages.get(threadId) || [];
   messages.push(dmMessage);
   if (messages.length > 500) messages.shift(); // Keep last 500 messages
   storage.dmMessages.set(threadId, messages);
-  
+
   // Update thread lastMessageAt
   thread.lastMessageAt = dmMessage.timestamp;
   storage.dmThreads.set(threadId, thread);
-  
+
   saveDMs();
   return dmMessage;
 }
@@ -1295,9 +1332,9 @@ export function createServer(ownerId: string, name: string, description?: string
     tags,
     createdAt: new Date().toISOString(),
   };
-  
+
   storage.servers.set(id, server);
-  
+
   // Add owner as first member
   const memberId = `member-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const member: ServerMember = {
@@ -1308,7 +1345,7 @@ export function createServer(ownerId: string, name: string, description?: string
     joinedAt: new Date().toISOString(),
   };
   storage.serverMembers.set(id, [member]);
-  
+
   // Create default general channel
   const channelId = `channel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const generalChannel: Channel = {
@@ -1321,7 +1358,7 @@ export function createServer(ownerId: string, name: string, description?: string
   };
   storage.channels.set(id, [generalChannel]);
   storage.channelMessages.set(channelId, []);
-  
+
   saveServers();
   return server;
 }
@@ -1333,12 +1370,12 @@ export function getServer(serverId: string): Server | null {
 export function updateServer(serverId: string, userId: string, updates: Partial<Server>): Server | { error: string } {
   const server = storage.servers.get(serverId);
   if (!server) return { error: 'Server not found' };
-  
+
   // Check if user has permission (owner or admin role)
   if (!isServerAdmin(serverId, userId)) {
     return { error: 'Not authorized' };
   }
-  
+
   const updated = { ...server, ...updates, id: server.id, ownerId: server.ownerId };
   storage.servers.set(serverId, updated);
   saveServers();
@@ -1348,11 +1385,11 @@ export function updateServer(serverId: string, userId: string, updates: Partial<
 export function deleteServer(serverId: string, userId: string): boolean {
   const server = storage.servers.get(serverId);
   if (!server || server.ownerId !== userId) return false;
-  
+
   storage.servers.delete(serverId);
   storage.serverMembers.delete(serverId);
   storage.serverRoles.delete(serverId);
-  
+
   // Delete all channels and messages
   const channels = storage.channels.get(serverId) || [];
   for (const channel of channels) {
@@ -1360,55 +1397,55 @@ export function deleteServer(serverId: string, userId: string): boolean {
   }
   storage.channels.delete(serverId);
   storage.bots.delete(serverId);
-  
+
   saveServers();
   return true;
 }
 
 export function getUserServers(userId: string): Server[] {
   const servers: Server[] = [];
-  
+
   for (const [serverId, members] of storage.serverMembers.entries()) {
     if (members.some(m => m.userId === userId)) {
       const server = storage.servers.get(serverId);
       if (server) servers.push(server);
     }
   }
-  
+
   return servers;
 }
 
 export function getDiscoverableServers(search?: string, tags?: string[]): Server[] {
   const servers: Server[] = [];
-  
+
   for (const server of storage.servers.values()) {
     if (!server.discoverable) continue;
-    
+
     if (search && !server.name.toLowerCase().includes(search.toLowerCase()) &&
         !server.description?.toLowerCase().includes(search.toLowerCase())) {
       continue;
     }
-    
+
     if (tags && tags.length > 0) {
       const hasTag = tags.some(tag => server.tags.includes(tag));
       if (!hasTag) continue;
     }
-    
+
     servers.push(server);
   }
-  
+
   return servers;
 }
 
 export function joinServer(serverId: string, userId: string): ServerMember | { error: string } {
   const server = storage.servers.get(serverId);
   if (!server) return { error: 'Server not found' };
-  
+
   const members = storage.serverMembers.get(serverId) || [];
   if (members.some(m => m.userId === userId)) {
     return { error: 'Already a member' };
   }
-  
+
   const member: ServerMember = {
     id: `member-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     serverId,
@@ -1416,7 +1453,7 @@ export function joinServer(serverId: string, userId: string): ServerMember | { e
     roles: [],
     joinedAt: new Date().toISOString(),
   };
-  
+
   members.push(member);
   storage.serverMembers.set(serverId, members);
   saveServers();
@@ -1426,15 +1463,15 @@ export function joinServer(serverId: string, userId: string): ServerMember | { e
 export function leaveServer(serverId: string, userId: string): boolean {
   const server = storage.servers.get(serverId);
   if (!server) return false;
-  
+
   // Owner can't leave, must delete or transfer
   if (server.ownerId === userId) return false;
-  
+
   const members = storage.serverMembers.get(serverId) || [];
   const newMembers = members.filter(m => m.userId !== userId);
-  
+
   if (newMembers.length === members.length) return false;
-  
+
   storage.serverMembers.set(serverId, newMembers);
   saveServers();
   return true;
@@ -1442,7 +1479,7 @@ export function leaveServer(serverId: string, userId: string): boolean {
 
 export function getServerMembers(serverId: string): (ServerMember & { user?: Partial<User> })[] {
   const members = storage.serverMembers.get(serverId) || [];
-  
+
   return members.map(member => {
     const user = storage.users.get(member.userId);
     if (user) {
@@ -1462,7 +1499,7 @@ export function isServerAdmin(serverId: string, userId: string): boolean {
   const server = storage.servers.get(serverId);
   if (!server) return false;
   if (server.ownerId === userId) return true;
-  
+
   const members = storage.serverMembers.get(serverId) || [];
   const member = members.find(m => m.userId === userId);
   return member?.roles.includes('admin') || false;
@@ -1474,10 +1511,10 @@ export function createChannel(serverId: string, userId: string, name: string, ty
   if (!isServerAdmin(serverId, userId)) {
     return { error: 'Not authorized' };
   }
-  
+
   const channels = storage.channels.get(serverId) || [];
   const id = `channel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  
+
   const channel: Channel = {
     id,
     serverId,
@@ -1487,7 +1524,7 @@ export function createChannel(serverId: string, userId: string, name: string, ty
     position: channels.length,
     createdAt: new Date().toISOString(),
   };
-  
+
   channels.push(channel);
   storage.channels.set(serverId, channels);
   storage.channelMessages.set(id, []);
@@ -1506,7 +1543,7 @@ export function updateChannel(channelId: string, userId: string, updates: Partia
       if (!isServerAdmin(serverId, userId)) {
         return { error: 'Not authorized' };
       }
-      
+
       const updated = { ...channels[channelIndex], ...updates, id: channelId, serverId };
       channels[channelIndex] = updated;
       storage.channels.set(serverId, channels);
@@ -1514,7 +1551,7 @@ export function updateChannel(channelId: string, userId: string, updates: Partia
       return updated;
     }
   }
-  
+
   return { error: 'Channel not found' };
 }
 
@@ -1523,7 +1560,7 @@ export function deleteChannel(channelId: string, userId: string): boolean {
     const channelIndex = channels.findIndex(c => c.id === channelId);
     if (channelIndex !== -1) {
       if (!isServerAdmin(serverId, userId)) return false;
-      
+
       channels.splice(channelIndex, 1);
       storage.channels.set(serverId, channels);
       storage.channelMessages.delete(channelId);
@@ -1539,9 +1576,9 @@ export function getChannelMessages(channelId: string): ChannelMessage[] {
 }
 
 export function sendChannelMessage(
-  channelId: string, 
-  userId: string, 
-  message: string, 
+  channelId: string,
+  userId: string,
+  message: string,
   imageUrl?: string,
   quotedMessageId?: string
 ): ChannelMessage | { error: string } {
@@ -1553,14 +1590,14 @@ export function sendChannelMessage(
       break;
     }
   }
-  
+
   if (!serverId || !isServerMember(serverId, userId)) {
     return { error: 'Not a member of this server' };
   }
-  
+
   const user = storage.users.get(userId);
   if (!user) return { error: 'User not found' };
-  
+
   const id = `cmsg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const channelMessage: ChannelMessage = {
     id,
@@ -1575,13 +1612,13 @@ export function sendChannelMessage(
     level: user.level,
     badge: user.badges[user.badges.length - 1],
   };
-  
+
   const messages = storage.channelMessages.get(channelId) || [];
   messages.push(channelMessage);
   if (messages.length > 500) messages.shift();
   storage.channelMessages.set(channelId, messages);
   saveServers();
-  
+
   return channelMessage;
 }
 
@@ -1591,7 +1628,7 @@ export function addBot(serverId: string, userId: string, name: string, descripti
   if (!isServerAdmin(serverId, userId)) {
     return { error: 'Not authorized' };
   }
-  
+
   const id = `bot-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const bot: BotConfig = {
     id,
@@ -1601,7 +1638,7 @@ export function addBot(serverId: string, userId: string, name: string, descripti
     enabled: true,
     createdAt: new Date().toISOString(),
   };
-  
+
   const bots = storage.bots.get(serverId) || [];
   bots.push(bot);
   storage.bots.set(serverId, bots);
@@ -1618,7 +1655,7 @@ export function removeBot(botId: string, userId: string): boolean {
     const botIndex = bots.findIndex(b => b.id === botId);
     if (botIndex !== -1) {
       if (!isServerAdmin(serverId, userId)) return false;
-      
+
       bots.splice(botIndex, 1);
       storage.bots.set(serverId, bots);
       saveServers();
@@ -1633,7 +1670,7 @@ export function removeBot(botId: string, userId: string): boolean {
 export function boostServer(serverId: string, userId: string, amount: number): any {
   const server = storage.servers.get(serverId);
   if (!server) return { error: 'Server not found' };
-  
+
   const boost = {
     id: `boost-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     serverId,
@@ -1641,10 +1678,10 @@ export function boostServer(serverId: string, userId: string, amount: number): a
     amount,
     timestamp: new Date().toISOString(),
   };
-  
+
   server.boostBalance = (server.boostBalance || 0) + amount;
   server.boostLevel = Math.floor(server.boostBalance / 100);
-  
+
   storage.servers.set(serverId, server);
   saveServers();
   return boost;
@@ -1658,13 +1695,13 @@ export function useServerBoost(serverId: string, userId: string, feature: string
   const server = storage.servers.get(serverId);
   if (!server) return { error: 'Server not found' };
   if (!isServerAdmin(serverId, userId)) return { error: 'Not authorized' };
-  
+
   if ((server.boostBalance || 0) < amount) {
     return { error: 'Insufficient boost balance' };
   }
-  
+
   server.boostBalance = (server.boostBalance || 0) - amount;
-  
+
   if (!server.features) {
     server.features = {
       animatedUsernames: false,
@@ -1672,7 +1709,7 @@ export function useServerBoost(serverId: string, userId: string, feature: string
       promotionSlots: 0,
     };
   }
-  
+
   switch (feature) {
     case 'animatedUsernames':
       server.features.animatedUsernames = true;
@@ -1686,7 +1723,7 @@ export function useServerBoost(serverId: string, userId: string, feature: string
     case 'banner':
       break;
   }
-  
+
   storage.servers.set(serverId, server);
   saveServers();
   return server;
@@ -1702,10 +1739,10 @@ export function createServerRole(serverId: string, userId: string, name: string,
   if (!isServerAdmin(serverId, userId)) {
     return { error: 'Not authorized' };
   }
-  
+
   const roles = storage.serverRoles.get(serverId) || [];
   const id = `role-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  
+
   const role = {
     id,
     serverId,
@@ -1716,7 +1753,7 @@ export function createServerRole(serverId: string, userId: string, name: string,
     createdBy: userId,
     createdAt: new Date().toISOString(),
   };
-  
+
   roles.push(role);
   storage.serverRoles.set(serverId, roles);
   saveServers();
@@ -1730,7 +1767,7 @@ export function updateServerRole(roleId: string, userId: string, updates: any): 
       if (!isServerAdmin(serverId, userId)) {
         return { error: 'Not authorized' };
       }
-      
+
       const updated = { ...roles[roleIndex], ...updates, id: roleId, serverId };
       roles[roleIndex] = updated;
       storage.serverRoles.set(serverId, roles);
@@ -1746,7 +1783,7 @@ export function deleteServerRole(roleId: string, userId: string): boolean {
     const roleIndex = roles.findIndex(r => r.id === roleId);
     if (roleIndex !== -1) {
       if (!isServerAdmin(serverId, userId)) return false;
-      
+
       roles.splice(roleIndex, 1);
       storage.serverRoles.set(serverId, roles);
       saveServers();
@@ -1763,12 +1800,12 @@ export function assignRoleToMember(memberId: string, userId: string, roleId: str
       if (!isServerAdmin(serverId, userId)) {
         return { error: 'Not authorized' };
       }
-      
+
       const member = members[memberIndex];
       if (!member.roles.includes(roleId)) {
         member.roles.push(roleId);
       }
-      
+
       storage.serverMembers.set(serverId, members);
       saveServers();
       return member;
@@ -1784,10 +1821,10 @@ export function removeRoleFromMember(memberId: string, userId: string, roleId: s
       if (!isServerAdmin(serverId, userId)) {
         return { error: 'Not authorized' };
       }
-      
+
       const member = members[memberIndex];
       member.roles = member.roles.filter(r => r !== roleId);
-      
+
       storage.serverMembers.set(serverId, members);
       saveServers();
       return member;

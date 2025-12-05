@@ -602,6 +602,44 @@ export async function registerRoutes(
     }
   });
 
+  // PIN management endpoints
+  app.post('/api/admin/verify-pin', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const { pin } = req.body;
+      if (!pin) {
+        return res.status(400).json({ error: 'PIN is required' });
+      }
+      
+      const isValid = storage.verifyAdminPin(req.userId, pin);
+      return res.json({ success: isValid });
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to verify PIN' });
+    }
+  });
+
+  app.post('/api/admin/set-pin', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const { pin } = req.body;
+      if (!pin || pin.length < 4) {
+        return res.status(400).json({ error: 'PIN must be at least 4 characters' });
+      }
+      
+      const success = storage.setAdminPin(req.userId, pin);
+      return res.json({ success });
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to set PIN' });
+    }
+  });
+
+  app.get('/api/admin/has-pin', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const hasPin = storage.getAdminPin(req.userId) !== undefined;
+      return res.json({ hasPin });
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to check PIN' });
+    }
+  });
+
   // Chat endpoints
   app.get('/api/chat/:room', async (req: any, res) => {
     const room = req.params.room as ChatRoom;
