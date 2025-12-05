@@ -7,6 +7,31 @@ import type {
 import { DEFAULT_QUESTS, QUEST_RESET_INTERVAL_MS, DAILY_QUEST_LIMIT } from "@shared/schema";
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
+
+// Password hashing utilities
+const SALT_LENGTH = 16;
+const KEY_LENGTH = 64;
+const ITERATIONS = 100000;
+
+export function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(SALT_LENGTH).toString('hex');
+  const hash = crypto.pbkdf2Sync(password, salt, ITERATIONS, KEY_LENGTH, 'sha512').toString('hex');
+  return `${salt}:${hash}`;
+}
+
+export function verifyPassword(password: string, storedHash: string): boolean {
+  if (!storedHash || !storedHash.includes(':')) {
+    return false;
+  }
+  const [salt, hash] = storedHash.split(':');
+  const verifyHash = crypto.pbkdf2Sync(password, salt, ITERATIONS, KEY_LENGTH, 'sha512').toString('hex');
+  return hash === verifyHash;
+}
+
+function isPasswordHashed(password: string): boolean {
+  return password.includes(':') && password.length > 100;
+}
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
@@ -22,12 +47,30 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-// Load persisted data
+// Load persisted data and migrate plaintext passwords to hashed
 function loadUsers(): Map<string, User & { password: string }> {
   try {
     if (fs.existsSync(USERS_FILE)) {
       const data = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
-      return new Map(Object.entries(data));
+      const users = new Map<string, User & { password: string }>(Object.entries(data));
+      
+      let needsSave = false;
+      for (const [id, user] of users.entries()) {
+        if (user.password && !isPasswordHashed(user.password)) {
+          console.log(`Migrating password for user: ${user.username}`);
+          user.password = hashPassword(user.password);
+          users.set(id, user);
+          needsSave = true;
+        }
+      }
+      
+      if (needsSave) {
+        const migratedData = Object.fromEntries(users.entries());
+        fs.writeFileSync(USERS_FILE, JSON.stringify(migratedData, null, 2));
+        console.log('Password migration complete');
+      }
+      
+      return users;
     }
   } catch (error) {
     console.error('Error loading users:', error);
@@ -421,12 +464,23 @@ export const storage = {
   bots: serverData.bots,
 };
 
-// Initialize admin account
+// Initialize admin account with hashed password from environment variable
 const adminId = "admin-illingstar";
+let adminRawPassword = process.env.ADMIN_PASSWORD;
+if (!adminRawPassword) {
+  adminRawPassword = crypto.randomUUID();
+  console.log('='.repeat(60));
+  console.log('ADMIN_PASSWORD not set. Generated temporary admin password:');
+  console.log(`  Username: illingstar`);
+  console.log(`  Password: ${adminRawPassword}`);
+  console.log('Set ADMIN_PASSWORD environment variable for persistent admin access.');
+  console.log('='.repeat(60));
+}
+const adminHashedPassword = hashPassword(adminRawPassword);
 storage.users.set(adminId, {
   id: adminId,
   username: "illingstar",
-  password: "Av121988", // In production, hash this!
+  password: adminHashedPassword,
   email: "admin@illingstar.com",
   role: 'admin',
   isAdmin: true,
@@ -454,10 +508,11 @@ export function getUserByUsername(username: string) {
 
 export function createUser(username: string, password: string, email?: string): User {
   const id = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const hashedPassword = hashPassword(password);
   const user = {
     id,
     username,
-    password,
+    password: hashedPassword,
     email,
     role: 'user' as UserRole,
     isAdmin: false,
@@ -577,7 +632,7 @@ export function changeUserPassword(userId: string, newPassword: string): User | 
   const user = storage.users.get(userId);
   if (!user) return null;
 
-  user.password = newPassword;
+  user.password = hashPassword(newPassword);
   storage.users.set(userId, user);
   saveUsers();
 
