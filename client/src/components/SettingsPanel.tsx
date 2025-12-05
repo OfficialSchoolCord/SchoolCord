@@ -332,7 +332,7 @@ export function SettingsPanel({
             className="text-xs text-white/40 text-center cursor-pointer select-none"
             onClick={handleVersionClick}
           >
-            Illing Star v1.0.0 - Cloud Browser
+            SchoolCord v1.0.0 - Cloud Browser
             {clickCount > 0 && clickCount < 5 && !devMode && (
               <span className="ml-2 text-primary">({clickCount}/5)</span>
             )}

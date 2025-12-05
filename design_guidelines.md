@@ -1,4 +1,4 @@
-# Illing Star - Design Guidelines
+# SchoolCord - Design Guidelines
 
 ## Design Approach
 **Reference-Based: Space/Astronomy Applications** (Stellarium, NASA websites, space exploration interfaces) combined with modern browser UI patterns (Arc Browser, Brave) to create an immersive stellar browsing experience.
@@ -11,7 +11,7 @@
 ## Typography
 - **Primary Font**: 'Space Grotesk' or 'Orbitron' (Google Fonts) for space-tech aesthetic
 - **Hero Headline**: 3xl-5xl, bold weight, white with subtle glow/text-shadow for "Explore the Web Beyond the Stars"
-- **App Title "Illing Star"**: 2xl-3xl, prominent placement, crimson accent color
+- **App Title "SchoolCord"**: 2xl-3xl, prominent placement, crimson accent color
 - **Body Text**: Base-lg, light weight, white/gray-100 for maximum contrast against dark background
 - **Search Placeholder**: text-gray-400, subtle and elegant
 

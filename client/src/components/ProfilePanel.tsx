@@ -336,7 +336,7 @@ export function ProfilePanel({ visitCount, onClose, user, onSignIn, onSignOut, o
                   }}
                 >
                   <Star className="w-4 h-4 text-primary" />
-                  <span className="text-sm text-white/70">Illing Star {user?.isAdmin ? 'Admin' : 'Premium User'}</span>
+                  <span className="text-sm text-white/70">SchoolCord {user?.isAdmin ? 'Admin' : 'Premium User'}</span>
                 </div>
                 {user && (
                   <Button

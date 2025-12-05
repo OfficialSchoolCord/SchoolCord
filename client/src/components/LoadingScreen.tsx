@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
 
 const LOADING_TIPS = [
-  "Illing Star connects you to the web through our secure cloud service",
+  "SchoolCord connects you to the web through our secure cloud service",
   "Use the search bar to browse any website or search the web",
   "Level up by browsing websites and chatting with friends",
   "Join servers to connect with communities that share your interests",
@@ -16,7 +16,7 @@ const LOADING_TIPS = [
   "Admin and moderator tools help keep communities safe",
   "Your browsing history is private and secure",
   "DuckDuckGo is our default search engine for privacy",
-  "Voice channels coming soon to Illing Star!",
+  "Voice channels coming soon to SchoolCord!",
   "Server boosts unlock premium features for communities",
 ];
 
@@ -77,7 +77,7 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
         {/* Loading Text */}
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-bold text-white">
-            Loading Illing Star
+            Loading SchoolCord
           </h2>
           <p className="text-white/60 text-sm">
             Did you know?

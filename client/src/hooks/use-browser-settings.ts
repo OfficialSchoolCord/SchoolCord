@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { HistoryItem } from '@shared/schema';
 
-const HISTORY_KEY = 'illing-star-history';
-const PRIVACY_KEY = 'illing-star-privacy';
+const HISTORY_KEY = 'schoolcord-history';
+const PRIVACY_KEY = 'schoolcord-privacy';
 
 export function useBrowserSettings() {
   const [privacyMode, setPrivacyMode] = useState<boolean>(() => {

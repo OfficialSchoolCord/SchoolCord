@@ -1,8 +1,8 @@
-# Illing Star - Cloud Browser
+# SchoolCord - Cloud Browser
 
 ## Overview
 
-Illing Star is a cloud-based web browser application with a space-themed aesthetic. The application allows users to search the web using DuckDuckGo or navigate directly to URLs through a proxy browsing service. It features an immersive cosmic UI with a purple-to-crimson gradient theme, animated starfield background, and a persistent sidebar navigation system.
+SchoolCord is a cloud-based web browser application with a space-themed aesthetic. The application allows users to search the web using DuckDuckGo or navigate directly to URLs through a proxy browsing service. It features an immersive cosmic UI with a purple-to-crimson gradient theme, animated starfield background, and a persistent sidebar navigation system.
 
 The project is a full-stack TypeScript application using React on the frontend and Express on the backend, with server-side web scraping capabilities to fetch and display external web content.
 

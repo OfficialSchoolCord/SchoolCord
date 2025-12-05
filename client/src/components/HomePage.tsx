@@ -34,7 +34,7 @@ export function HomePage({ onSearch, isLoading }: HomePageProps) {
             }}
             data-testid="text-app-title"
           >
-            Illing Star
+            SchoolCord
           </h1>
         </div>
 
