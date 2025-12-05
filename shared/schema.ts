@@ -55,8 +55,6 @@ export const aiMessageSchema = z.object({
 
 export type AIMessage = z.infer<typeof aiMessageSchema>;
 
-export type NavItemId = 'home' | 'search' | 'apps' | 'ai' | 'chat' | 'leaderboard' | 'settings' | 'history' | 'profile' | 'admin';
-
 // AI chat request schema
 export const aiChatRequestSchema = z.object({
   message: z.string().min(1),
@@ -170,6 +168,7 @@ export const sidebarNavItems = [
   { id: 'home', label: 'Home', icon: 'home' },
   { id: 'search', label: 'Search', icon: 'search' },
   { id: 'apps', label: 'Apps', icon: 'apps' },
+  { id: 'games', label: 'Games', icon: 'gamepad' }, // Added games tab
   { id: 'ai', label: 'AI Assistant', icon: 'ai' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
   { id: 'history', label: 'History', icon: 'history' },

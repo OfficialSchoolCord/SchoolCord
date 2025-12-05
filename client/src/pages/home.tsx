@@ -17,6 +17,7 @@ import { LevelUpNotification } from '@/components/LevelUpNotification';
 import { LeaderboardPanel } from '@/components/LeaderboardPanel';
 import { OnboardingTutorial } from '@/components/OnboardingTutorial';
 import { AnnouncementDisplay } from '@/components/AnnouncementDisplay';
+import { GamesPanel } from '@/components/GamesPanel';
 import { useToast } from '@/hooks/use-toast';
 import { useBrowserSettings } from '@/hooks/use-browser-settings';
 import type { NavItemId, HistoryItem, FetchResponse, UserRole } from '@shared/schema';
@@ -377,6 +378,8 @@ export default function Home() {
             </div>
           </div>
         );
+      case 'games':
+        return <GamesPanel onClose={handleClosePanel} />;
       default:
         return null;
     }

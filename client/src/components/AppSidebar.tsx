@@ -5,9 +5,11 @@ import {
   Settings, 
   Clock, 
   User,
-  Sparkles,
+  MessageSquare,
   Shield,
-  MessageSquare
+  Sparkles,
+  Trophy,
+  Gamepad2
 } from 'lucide-react';
 import {
   Sidebar,
@@ -27,8 +29,6 @@ interface AppSidebarProps {
   userRole?: UserRole;
 }
 
-import { Trophy } from 'lucide-react';
-
 const baseNavItems: { id: NavItemId; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'Home', icon: Sparkles },
   { id: 'search', label: 'Search', icon: Search },
@@ -45,10 +45,18 @@ const adminNavItem = { id: 'admin' as NavItemId, label: 'Admin', icon: Shield };
 
 export function AppSidebar({ activeNav, onNavChange, userRole = 'user' }: AppSidebarProps) {
   const hasModeratorAccess = userRole === 'admin' || userRole === 'mod';
-  
+
   const navItems = hasModeratorAccess 
     ? [...baseNavItems.slice(0, -1), adminNavItem, baseNavItems[baseNavItems.length - 1]]
     : baseNavItems;
+
+  // Add Games navigation item to sidebar
+  const updatedNavItems = [
+    ...navItems.slice(0, 3), // Home, Search, Apps
+    { id: 'games', label: 'Games', icon: Gamepad2 }, // Games tab
+    ...navItems.slice(3), // Rest of the items
+  ];
+
 
   return (
     <Sidebar 
@@ -69,10 +77,10 @@ export function AppSidebar({ activeNav, onNavChange, userRole = 'user' }: AppSid
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => {
+              {updatedNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeNav === item.id;
-                
+
                 return (
                   <SidebarMenuItem key={item.id}>
                     <Tooltip delayDuration={200}>
