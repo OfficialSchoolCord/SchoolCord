@@ -129,6 +129,17 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
       alert('Password must be at least 6 characters');
       return;
     }
+    
+    // Check if user is trying to change an admin's password (including their own)
+    const targetUser = users.find(u => u.id === userId);
+    if (targetUser?.role === 'admin') {
+      const code = prompt('Enter 6-digit authentication code to change admin password:');
+      if (code !== '676767') {
+        alert('Invalid authentication code. Access denied.');
+        return;
+      }
+    }
+    
     try {
       await fetch('/api/admin/change-password', {
         method: 'POST',
