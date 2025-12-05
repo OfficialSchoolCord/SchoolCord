@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 
 interface AuthModalProps {
   onClose: () => void;
-  onSuccess: (user: any, sessionId: string) => void;
+  onSuccess: (user: any, sessionId: string, isNewUser?: boolean) => void;
 }
 
 export function AuthModal({ onClose, onSuccess }: AuthModalProps) {
@@ -44,7 +44,8 @@ export function AuthModal({ onClose, onSuccess }: AuthModalProps) {
         return;
       }
 
-      onSuccess(data.user, data.sessionId);
+      // Pass true for isNewUser only when registering
+      onSuccess(data.user, data.sessionId, !isLogin);
     } catch (err) {
       setError('Network error. Please try again.');
       setLoading(false);

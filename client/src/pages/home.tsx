@@ -48,12 +48,8 @@ export default function Home() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [levelUpData, setLevelUpData] = useState<{ newLevel: number } | null>(null);
-  const [showOnboarding, setShowOnboarding] = useState(() => {
-    return !localStorage.getItem('onboardingCompleted');
-  });
-  const [showLoading, setShowLoading] = useState(() => {
-    return !localStorage.getItem('hasLoadedBefore');
-  });
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showLoading, setShowLoading] = useState(true);
   const [inviteServerId, setInviteServerId] = useState<string | null>(null);
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
   const [selectedDMThreadId, setSelectedDMThreadId] = useState<string | null>(null);
@@ -94,26 +90,26 @@ export default function Home() {
     }
   };
 
-  const handleAuthSuccess = (userData: any, newSessionId: string) => {
+  const handleAuthSuccess = (userData: any, newSessionId: string, isNewUser?: boolean) => {
     setUser(userData);
     setSessionId(newSessionId);
     localStorage.setItem('sessionId', newSessionId);
     setShowAuthModal(false);
 
-    // Show onboarding for new users (check if they just registered)
-    const isNewUser = !localStorage.getItem(`onboarding_completed_${userData.id}`);
+    // Show onboarding only for newly registered users
     if (isNewUser) {
       setShowOnboarding(true);
     }
   };
 
   const handleOnboardingComplete = () => {
-    localStorage.setItem('onboardingCompleted', 'true');
+    if (user) {
+      localStorage.setItem(`onboarding_completed_${user.id}`, 'true');
+    }
     setShowOnboarding(false);
   };
 
   const handleLoadingComplete = () => {
-    localStorage.setItem('hasLoadedBefore', 'true');
     setShowLoading(false);
   };
 
@@ -481,16 +477,6 @@ export default function Home() {
 
       {showLoading && (
         <LoadingScreen 
-          tips={[
-            "Tip: Use Ctrl+F to quickly search within pages.",
-            "Tip: Customize your privacy settings in the Settings panel.",
-            "Tip: Explore the Apps panel for new functionalities.",
-            "Tip: Join servers to connect with communities.",
-            "Tip: Your browsing history is saved securely.",
-            "Tip: Try out the AI chat for assistance.",
-            "Tip: Check the Leaderboard to see top users.",
-            "Tip: Use keyboard shortcuts for faster navigation.",
-          ]}
           onComplete={handleLoadingComplete}
         />
       )}
