@@ -27,7 +27,6 @@ import { ServersPanel } from '@/components/ServersPanel';
 import { DiscoveryPanel } from '@/components/DiscoveryPanel';
 import { FriendsPanel } from '@/components/FriendsPanel';
 import { DMChatPanel } from '@/components/DMChatPanel';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { useQuery } from '@tanstack/react-query';
 
 export default function Home() {
@@ -302,7 +301,12 @@ export default function Home() {
   };
 
   const handleCreateServerFromNav = () => {
-    setActiveNav('servers');
+    setActivePanel('servers');
+  };
+
+  const handleDMOpen = (threadId: string) => {
+    setSelectedDMThreadId(threadId);
+    setActivePanel('chat');
   };
 
   const renderPanel = () => {
@@ -427,23 +431,19 @@ export default function Home() {
         />
       )}
 
-      <SidebarProvider 
-        defaultOpen={false}
-        style={sidebarStyle}
-      >
-        <ServerNavSidebar 
-          onServerSelect={handleServerSelect}
-          onCreateServer={handleCreateServerFromNav}
-          selectedServerId={selectedServerId}
-          sessionId={sessionId}
-        />
-        <AppSidebar 
-          activeNav={activePanel} 
-          onNavChange={handlePanelChange} 
-          userRole={userRole}
-        />
+      <TooltipProvider>
+        <SidebarProvider 
+          defaultOpen={true}
+          style={sidebarStyle}
+        >
+          <ServerNavSidebar 
+            onServerSelect={handleServerSelect}
+            onCreateServer={handleCreateServerFromNav}
+            selectedServerId={selectedServerId}
+            sessionId={sessionId}
+          />
 
-        <SidebarInset className="bg-transparent">
+          <SidebarInset className="bg-transparent">
           {selectedServerId && (
             <ServersPanel 
               sessionId={sessionId} 
@@ -507,7 +507,14 @@ export default function Home() {
             <AuthModal onClose={() => setShowAuthModal(false)} onSuccess={handleAuthSuccess} />
           )}
         </SidebarInset>
+
+        <AppSidebar 
+          activeNav={activePanel} 
+          onNavChange={handlePanelChange} 
+          userRole={userRole}
+        />
       </SidebarProvider>
+      </TooltipProvider>
     </div>
   );
 }

@@ -60,9 +60,10 @@ export function AppSidebar({ activeNav, onNavChange, userRole = 'user' }: AppSid
   return (
     <Sidebar 
       collapsible="icon"
-      className="border-r-0"
+      side="right"
+      className="border-l-0"
       style={{
-        '--sidebar-width': '4rem',
+        '--sidebar-width': '16rem',
         '--sidebar-width-icon': '4rem',
       } as React.CSSProperties}
     >
@@ -82,40 +83,15 @@ export function AppSidebar({ activeNav, onNavChange, userRole = 'user' }: AppSid
 
                 return (
                   <SidebarMenuItem key={item.id}>
-                    <Tooltip delayDuration={200}>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => onNavChange(item.id)}
-                          className={`
-                            relative w-12 h-12 mx-auto rounded-lg transition-all duration-200 flex items-center justify-center
-                            ${isActive 
-                              ? 'bg-primary/20 text-primary' 
-                              : 'text-white/70 hover:text-white hover:bg-white/10'
-                            }
-                          `}
-                          data-testid={`nav-button-${item.id}`}
-                          aria-label={item.label}
-                        >
-                          {isActive && (
-                            <div 
-                              className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full"
-                              style={{
-                                boxShadow: '0 0 10px rgba(220, 38, 38, 0.6)',
-                              }}
-                            />
-                          )}
-                          <Icon 
-                            className={`w-5 h-5 transition-all duration-200 ${isActive ? 'icon-glow' : ''}`}
-                          />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent 
-                        side="right" 
-                        className="bg-card/95 backdrop-blur-md border-white/10"
-                      >
-                        <p>{item.label}</p>
-                      </TooltipContent>
-                    </Tooltip>
+                    <SidebarMenuButton
+                      onClick={() => onNavChange(item.id)}
+                      isActive={isActive}
+                      className="group-data-[collapsible=icon]:justify-center"
+                      data-testid={`nav-button-${item.id}`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
               })}
