@@ -29,6 +29,8 @@ import { DiscoveryPanel } from '@/components/DiscoveryPanel';
 import { FriendsPanel } from '@/components/FriendsPanel';
 import { DMChatPanel } from '@/components/DMChatPanel';
 import { useQuery } from '@tanstack/react-query';
+import { LoadingScreen } from '@/components/LoadingScreen'; // Assuming LoadingScreen component exists
+import { ServerInviteDialog } from '@/components/ServerInviteDialog'; // Assuming ServerInviteDialog component exists
 
 export default function Home() {
   const [activePanel, setActivePanel] = useState<NavItemId | null>('home');
@@ -46,7 +48,13 @@ export default function Home() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [levelUpData, setLevelUpData] = useState<{ newLevel: number } | null>(null);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    return !localStorage.getItem('onboardingCompleted');
+  });
+  const [showLoading, setShowLoading] = useState(() => {
+    return !localStorage.getItem('hasLoadedBefore');
+  });
+  const [inviteServerId, setInviteServerId] = useState<string | null>(null);
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
   const [selectedDMThreadId, setSelectedDMThreadId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -100,10 +108,13 @@ export default function Home() {
   };
 
   const handleOnboardingComplete = () => {
+    localStorage.setItem('onboardingCompleted', 'true');
     setShowOnboarding(false);
-    if (user) {
-      localStorage.setItem(`onboarding_completed_${user.id}`, 'true');
-    }
+  };
+
+  const handleLoadingComplete = () => {
+    localStorage.setItem('hasLoadedBefore', 'true');
+    setShowLoading(false);
   };
 
   const handleSignOut = async () => {
@@ -207,8 +218,16 @@ export default function Home() {
   });
 
   const handleSearch = useCallback((query: string) => {
+    // Check if it's a server invite link
+    const inviteMatch = query.match(/invite\/([a-zA-Z0-9-]+)/);
+    if (inviteMatch) {
+      const serverId = inviteMatch[1];
+      setInviteServerId(serverId);
+      return;
+    }
+
     setShowBrowser(true);
-    setActivePanel('search');
+    setActivePanel('search'); // Changed from 'browser' to 'search' to align with SearchBox
     setPageError(null);
     setPageContent(null);
 
@@ -218,7 +237,7 @@ export default function Home() {
     setHistoryIndex(newHistory.length - 1);
 
     fetchMutation.mutate(query);
-  }, [history, historyIndex, fetchMutation]);
+  }, [history, historyIndex, fetchMutation, sessionId]); // Added sessionId dependency
 
   const handleBack = useCallback(() => {
     if (historyIndex > 0) {
@@ -308,6 +327,45 @@ export default function Home() {
   const handleDMOpen = (threadId: string) => {
     setSelectedDMThreadId(threadId);
     setActivePanel('chat');
+  };
+
+  const handleJoinServer = async (serverId: string) => {
+    if (!sessionId) {
+      setShowAuthModal(true);
+      return;
+    }
+    try {
+      const response = await fetch('/api/servers/join', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': sessionId,
+        },
+        body: JSON.stringify({ serverId }),
+      });
+      if (response.ok) {
+        toast({
+          title: 'Server Joined',
+          description: 'You have successfully joined the server.',
+        });
+        setSelectedServerId(serverId); // Select the newly joined server
+        setInviteServerId(null); // Close the invite dialog
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: 'Error Joining Server',
+          description: errorData.error || 'Failed to join the server.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to join server:', error);
+      toast({
+        title: 'Error Joining Server',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const renderPanel = () => {
@@ -421,6 +479,22 @@ export default function Home() {
       <Starfield />
       <AnnouncementDisplay />
 
+      {showLoading && (
+        <LoadingScreen 
+          tips={[
+            "Tip: Use Ctrl+F to quickly search within pages.",
+            "Tip: Customize your privacy settings in the Settings panel.",
+            "Tip: Explore the Apps panel for new functionalities.",
+            "Tip: Join servers to connect with communities.",
+            "Tip: Your browsing history is saved securely.",
+            "Tip: Try out the AI chat for assistance.",
+            "Tip: Check the Leaderboard to see top users.",
+            "Tip: Use keyboard shortcuts for faster navigation.",
+          ]}
+          onComplete={handleLoadingComplete}
+        />
+      )}
+
       {showOnboarding && (
         <OnboardingTutorial onComplete={handleOnboardingComplete} />
       )}
@@ -429,6 +503,15 @@ export default function Home() {
         <LevelUpNotification 
           newLevel={levelUpData.newLevel} 
           onComplete={() => setLevelUpData(null)} 
+        />
+      )}
+
+      {inviteServerId && (
+        <ServerInviteDialog 
+          serverId={inviteServerId}
+          sessionId={sessionId}
+          onClose={() => setInviteServerId(null)}
+          onJoin={handleJoinServer}
         />
       )}
 

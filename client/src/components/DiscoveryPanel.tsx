@@ -33,7 +33,10 @@ export function DiscoveryPanel({ onClose, sessionId, onNavigateToServer }: Disco
 
   const joinServerMutation = useMutation({
     mutationFn: async (serverId: string) => {
-      const res = await apiRequest('POST', `/api/servers/${serverId}/join`);
+      if (!sessionId) {
+        throw new Error('You must be signed in to join servers');
+      }
+      const res = await apiRequest('POST', `/api/servers/${serverId}/join`, undefined, sessionId);
       return res.json();
     },
     onSuccess: (_, serverId) => {
@@ -197,7 +200,13 @@ export function DiscoveryPanel({ onClose, sessionId, onNavigateToServer }: Disco
                         ) : (
                           <Button
                             size="sm"
-                            onClick={() => joinServerMutation.mutate(server.id)}
+                            onClick={() => {
+                              if (!sessionId) {
+                                toast({ title: 'Sign in required', description: 'Please sign in to join servers', variant: 'destructive' });
+                                return;
+                              }
+                              joinServerMutation.mutate(server.id);
+                            }}
                             disabled={joinServerMutation.isPending}
                             data-testid={`button-join-server-${server.id}`}
                           >

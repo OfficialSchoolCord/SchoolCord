@@ -49,7 +49,7 @@ export function HomePage({ onSearch, isLoading }: HomePageProps) {
         </h2>
 
         <p className="text-white/50 text-center text-lg max-w-xl">
-          Enter any website URL or search term to browse the web through our cloud service
+          Browse websites, join servers, chat with friends, and explore the cosmos together. Enter any URL, search term, or server invite link to begin your journey.
         </p>
 
         <div className="w-full mt-4">
