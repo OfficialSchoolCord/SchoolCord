@@ -1,4 +1,3 @@
-
 import type { User, QuickApp, BlockedWebsite, HistoryItem, UserRole, ChatMessage, ChatRoom, Quest, UserQuestData } from "@shared/schema";
 import { DEFAULT_QUESTS, QUEST_RESET_INTERVAL_MS, DAILY_QUEST_LIMIT } from "@shared/schema";
 import fs from 'fs';
@@ -101,14 +100,14 @@ export function createAnnouncement(userId: string, message: string): Announcemen
     timestamp: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 5000).toISOString(), // 5 seconds
   };
-  
+
   storage.announcements.push(announcement);
-  
+
   // Clean up expired announcements after 10 seconds
   setTimeout(() => {
     storage.announcements = storage.announcements.filter(a => a.id !== announcement.id);
   }, 10000);
-  
+
   return announcement;
 }
 
@@ -311,7 +310,7 @@ export function createUser(username: string, password: string, email?: string): 
 export function updateUser(userId: string, updates: Partial<User>) {
   const user = storage.users.get(userId);
   if (!user) return null;
-  
+
   const updated = { ...user, ...updates };
   storage.users.set(userId, updated);
   saveUsers();
@@ -397,12 +396,12 @@ export function getAllUsers(): (User & { isBanned: boolean })[] {
 export function setUserRole(userId: string, role: UserRole): User | null {
   const user = storage.users.get(userId);
   if (!user) return null;
-  
+
   user.role = role;
   user.isAdmin = role === 'admin';
   storage.users.set(userId, user);
   saveUsers();
-  
+
   const { password, ...userWithoutPassword } = user;
   return userWithoutPassword;
 }
@@ -410,11 +409,11 @@ export function setUserRole(userId: string, role: UserRole): User | null {
 export function changeUserPassword(userId: string, newPassword: string): User | null {
   const user = storage.users.get(userId);
   if (!user) return null;
-  
+
   user.password = newPassword;
   storage.users.set(userId, user);
   saveUsers();
-  
+
   const { password, ...userWithoutPassword } = user;
   return userWithoutPassword;
 }
@@ -422,12 +421,12 @@ export function changeUserPassword(userId: string, newPassword: string): User | 
 export function changeUserLevel(userId: string, newLevel: number): User | null {
   const user = storage.users.get(userId);
   if (!user) return null;
-  
+
   user.level = newLevel;
-  
+
   // Update XP to match the new level so it persists correctly
   user.xp = calculateXPForLevel(newLevel);
-  
+
   // Award badges based on new level
   user.badges = [];
   if (newLevel >= 10) user.badges.push('star');
@@ -435,10 +434,10 @@ export function changeUserLevel(userId: string, newLevel: number): User | null {
   if (newLevel >= 50) user.badges.push('goat');
   if (newLevel >= 100) user.badges.push('crown');
   if (newLevel >= 5000) user.badges.push('fire');
-  
+
   storage.users.set(userId, user);
   saveUsers();
-  
+
   const { password, ...userWithoutPassword } = user;
   return userWithoutPassword;
 }
@@ -446,7 +445,7 @@ export function changeUserLevel(userId: string, newLevel: number): User | null {
 export function hasModeratorAccess(userId: string): boolean {
   const user = storage.users.get(userId);
   if (!user) return false;
-  return user.role === 'admin' || user.role === 'mod';
+  return user.role === 'mod' || user.role === 'admin';
 }
 
 export function getAnalytics() {
@@ -480,20 +479,20 @@ export function getChatMessages(room: ChatRoom): ChatMessage[] {
 
 export function canAccessChatRoom(userId: string | undefined, room: ChatRoom): boolean {
   if (room === 'global') return true;
-  
+
   if (!userId) return false;
-  
+
   const user = storage.users.get(userId);
   if (!user) return false;
-  
+
   if (room === 'mod') {
     return user.role === 'mod' || user.role === 'admin';
   }
-  
+
   if (room === 'admin') {
     return user.role === 'admin';
   }
-  
+
   return false;
 }
 
@@ -510,7 +509,7 @@ export function calculateLevel(xp: number): number {
   if (xp < 25000) return Math.floor(65 + (xp - 7500) / 250);
   if (xp < 100000) return Math.floor(135 + (xp - 25000) / 500);
   if (xp < 500000) return Math.floor(285 + (xp - 100000) / 1000);
-  
+
   return Math.min(5000, Math.floor(685 + (xp - 500000) / 5000));
 }
 
@@ -531,15 +530,15 @@ export function calculateXPForLevel(level: number): number {
 export function addXP(userId: string, amount: number): { newLevel: number; oldLevel: number; newXP: number } | null {
   const user = storage.users.get(userId);
   if (!user) return null;
-  
+
   const oldLevel = user.level || 1;
   const oldXP = user.xp || 0;
   const newXP = oldXP + amount;
   const newLevel = calculateLevel(newXP);
-  
+
   user.xp = newXP;
   user.level = newLevel;
-  
+
   // Award badges based on level
   if (newLevel >= 10 && !user.badges.includes('star')) {
     user.badges.push('star');
@@ -556,7 +555,7 @@ export function addXP(userId: string, amount: number): { newLevel: number; oldLe
   if (newLevel >= 5000 && !user.badges.includes('fire')) {
     user.badges.push('fire');
   }
-  
+
   storage.users.set(userId, user);
   saveUsers();
   return { newLevel, oldLevel, newXP };
@@ -574,7 +573,7 @@ export function getLeaderboard(limit: number = 50) {
     }))
     .sort((a, b) => b.level - a.level || b.xp - a.xp)
     .slice(0, limit);
-  
+
   return users;
 }
 
@@ -641,7 +640,7 @@ function shouldResetQuests(lastResetTime: string): boolean {
 
 export function getUserQuests(userId: string): UserQuestData {
   let questData = storage.quests.get(userId);
-  
+
   // Initialize quests for new users
   if (!questData) {
     questData = {
@@ -653,7 +652,7 @@ export function getUserQuests(userId: string): UserQuestData {
     storage.quests.set(userId, questData);
     saveQuests();
   }
-  
+
   // Check if quests need to be reset (6 hour timer)
   if (shouldResetQuests(questData.lastResetTime)) {
     questData = {
@@ -665,50 +664,50 @@ export function getUserQuests(userId: string): UserQuestData {
     storage.quests.set(userId, questData);
     saveQuests();
   }
-  
+
   return questData;
 }
 
 export function getQuestResetTimeRemaining(userId: string): number {
   const questData = storage.quests.get(userId);
   if (!questData) return 0;
-  
+
   const lastReset = new Date(questData.lastResetTime).getTime();
   const nextReset = lastReset + QUEST_RESET_INTERVAL_MS;
   const remaining = nextReset - Date.now();
-  
+
   return Math.max(0, remaining);
 }
 
 export function updateQuestProgress(userId: string, questType: string, amount: number = 1): { questCompleted: boolean; xpAwarded: number; quest?: Quest } | null {
   const questData = getUserQuests(userId);
-  
+
   // Check daily limit
   if (questData.dailyQuestsCompleted >= DAILY_QUEST_LIMIT) {
     return { questCompleted: false, xpAwarded: 0 };
   }
-  
+
   const quest = questData.quests.find(q => q.type === questType && !q.completed);
   if (!quest) return { questCompleted: false, xpAwarded: 0 };
-  
+
   quest.progress = Math.min(quest.progress + amount, quest.requirement);
-  
+
   let xpAwarded = 0;
   let questCompleted = false;
-  
+
   if (quest.progress >= quest.requirement && !quest.completed) {
     quest.completed = true;
     questCompleted = true;
     xpAwarded = quest.xpReward;
     questData.dailyQuestsCompleted++;
-    
+
     // Award XP for completing quest
     addXP(userId, xpAwarded);
   }
-  
+
   storage.quests.set(userId, questData);
   saveQuests();
-  
+
   return { questCompleted, xpAwarded, quest };
 }
 
