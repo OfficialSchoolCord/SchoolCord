@@ -12,7 +12,9 @@ import {
   Gamepad2,
   Users,
   Server,
-  Compass
+  Compass,
+  PanelRightClose,
+  PanelRightOpen
 } from 'lucide-react';
 import {
   Sidebar,
@@ -22,7 +24,10 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarHeader,
+  useSidebar,
 } from '@/components/ui/sidebar';
+import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { UserRole, ExtendedNavItemId } from '@shared/schema';
 
@@ -52,6 +57,7 @@ const adminNavItem = { id: 'admin' as ExtendedNavItemId, label: 'Admin', icon: S
 
 export function AppSidebar({ activeNav, onNavChange, userRole = 'user' }: AppSidebarProps) {
   const hasModeratorAccess = userRole === 'admin' || userRole === 'mod';
+  const { toggleSidebar, state } = useSidebar();
 
   const navItems = hasModeratorAccess 
     ? [...baseNavItems.slice(0, -1), adminNavItem, baseNavItems[baseNavItems.length - 1]]
@@ -67,6 +73,34 @@ export function AppSidebar({ activeNav, onNavChange, userRole = 'user' }: AppSid
         '--sidebar-width-icon': '4rem',
       } as React.CSSProperties}
     >
+      <SidebarHeader
+        className="flex items-center justify-center py-2"
+        style={{
+          background: 'rgba(0, 0, 0, 0.25)',
+          backdropFilter: 'blur(12px)',
+        }}
+      >
+        <Tooltip delayDuration={200}>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSidebar}
+              className="text-white/70 hover:text-white"
+              data-testid="button-toggle-sidebar"
+            >
+              {state === 'expanded' ? (
+                <PanelRightClose className="w-5 h-5" />
+              ) : (
+                <PanelRightOpen className="w-5 h-5" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            <p>{state === 'expanded' ? 'Collapse Menu' : 'Expand Menu'}</p>
+          </TooltipContent>
+        </Tooltip>
+      </SidebarHeader>
       <SidebarContent 
         className="py-4"
         style={{

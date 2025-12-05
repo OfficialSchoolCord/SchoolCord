@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Server, Plus, Hash, Volume2, MessageSquare, Settings, Users, Trash2, LogOut, Bot, Quote } from 'lucide-react';
+import { X, Server, Plus, Hash, Volume2, MessageSquare, Settings, Users, Trash2, LogOut, Bot, Quote, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { apiRequest, queryClient } from '@/lib/queryClient';
+import { queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import type { Server as ServerType, Channel, ChannelMessage, ChannelType } from '@shared/schema';
 
@@ -34,44 +34,93 @@ export function ServersPanel({ onClose, sessionId, user, preselectedServerId }: 
   const { data: serversData, isLoading: serversLoading } = useQuery<{ servers: ServerType[] }>({
     queryKey: ['/api/servers'],
     enabled: !!sessionId,
+    queryFn: async () => {
+      const res = await fetch('/api/servers', {
+        headers: { 'x-session-id': sessionId || '' },
+      });
+      if (!res.ok) throw new Error('Failed to fetch servers');
+      return res.json();
+    },
   });
 
   const { data: channelsData } = useQuery<{ channels: Channel[] }>({
     queryKey: ['/api/servers', selectedServerId, 'channels'],
     enabled: !!sessionId && !!selectedServerId,
+    queryFn: async () => {
+      const res = await fetch(`/api/servers/${selectedServerId}/channels`, {
+        headers: { 'x-session-id': sessionId || '' },
+      });
+      if (!res.ok) throw new Error('Failed to fetch channels');
+      return res.json();
+    },
   });
 
   const { data: messagesData, refetch: refetchMessages } = useQuery<{ messages: ChannelMessage[] }>({
     queryKey: ['/api/channels', selectedChannelId, 'messages'],
     enabled: !!sessionId && !!selectedChannelId,
     refetchInterval: 3000,
+    queryFn: async () => {
+      const res = await fetch(`/api/channels/${selectedChannelId}/messages`, {
+        headers: { 'x-session-id': sessionId || '' },
+      });
+      if (!res.ok) throw new Error('Failed to fetch messages');
+      return res.json();
+    },
   });
 
   const { data: serverInfo } = useQuery<{ server: ServerType; isMember: boolean; isAdmin: boolean }>({
     queryKey: ['/api/servers', selectedServerId],
     enabled: !!sessionId && !!selectedServerId,
+    queryFn: async () => {
+      const res = await fetch(`/api/servers/${selectedServerId}`, {
+        headers: { 'x-session-id': sessionId || '' },
+      });
+      if (!res.ok) throw new Error('Failed to fetch server info');
+      return res.json();
+    },
   });
 
   const createServerMutation = useMutation({
     mutationFn: async (data: { name: string; description?: string; discoverable: boolean }) => {
-      return apiRequest('/api/servers', {
+      const res = await fetch('/api/servers', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': sessionId || '',
+        },
         body: JSON.stringify(data),
       });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to create server');
+      }
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/servers'] });
       setShowCreateServer(false);
-      toast({ title: 'Server created' });
+      toast({ title: 'Server created successfully!' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });
 
   const createChannelMutation = useMutation({
     mutationFn: async (data: { name: string; type: ChannelType; topic?: string }) => {
-      return apiRequest(`/api/servers/${selectedServerId}/channels`, {
+      const res = await fetch(`/api/servers/${selectedServerId}/channels`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': sessionId || '',
+        },
         body: JSON.stringify(data),
       });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to create channel');
+      }
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/servers', selectedServerId, 'channels'] });
@@ -82,10 +131,19 @@ export function ServersPanel({ onClose, sessionId, user, preselectedServerId }: 
 
   const sendMessageMutation = useMutation({
     mutationFn: async (message: string) => {
-      return apiRequest(`/api/channels/${selectedChannelId}/messages`, {
+      const res = await fetch(`/api/channels/${selectedChannelId}/messages`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': sessionId || '',
+        },
         body: JSON.stringify({ message }),
       });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to send message');
+      }
+      return res.json();
     },
     onSuccess: () => {
       setNewMessage('');
@@ -95,7 +153,17 @@ export function ServersPanel({ onClose, sessionId, user, preselectedServerId }: 
 
   const leaveServerMutation = useMutation({
     mutationFn: async (serverId: string) => {
-      return apiRequest(`/api/servers/${serverId}/leave`, { method: 'POST' });
+      const res = await fetch(`/api/servers/${serverId}/leave`, {
+        method: 'POST',
+        headers: {
+          'x-session-id': sessionId || '',
+        },
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to leave server');
+      }
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/servers'] });
@@ -107,7 +175,17 @@ export function ServersPanel({ onClose, sessionId, user, preselectedServerId }: 
 
   const deleteServerMutation = useMutation({
     mutationFn: async (serverId: string) => {
-      return apiRequest(`/api/servers/${serverId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/servers/${serverId}`, {
+        method: 'DELETE',
+        headers: {
+          'x-session-id': sessionId || '',
+        },
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to delete server');
+      }
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/servers'] });
@@ -377,24 +455,44 @@ export function ServersPanel({ onClose, sessionId, user, preselectedServerId }: 
 
       <Dialog open={showCreateServer} onOpenChange={setShowCreateServer}>
         <DialogContent className="bg-card border-white/10">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowCreateServer(false)}
+              className="text-white/70 hover:text-white"
+              data-testid="button-back-create-server"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
             <DialogTitle className="text-white">Create Server</DialogTitle>
           </DialogHeader>
           <CreateServerForm 
             onSubmit={(data) => createServerMutation.mutate(data)}
             isPending={createServerMutation.isPending}
+            onCancel={() => setShowCreateServer(false)}
           />
         </DialogContent>
       </Dialog>
 
       <Dialog open={showCreateChannel} onOpenChange={setShowCreateChannel}>
         <DialogContent className="bg-card border-white/10">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowCreateChannel(false)}
+              className="text-white/70 hover:text-white"
+              data-testid="button-back-create-channel"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
             <DialogTitle className="text-white">Create Channel</DialogTitle>
           </DialogHeader>
           <CreateChannelForm 
             onSubmit={(data) => createChannelMutation.mutate(data)}
             isPending={createChannelMutation.isPending}
+            onCancel={() => setShowCreateChannel(false)}
           />
         </DialogContent>
       </Dialog>
@@ -402,7 +500,7 @@ export function ServersPanel({ onClose, sessionId, user, preselectedServerId }: 
   );
 }
 
-function CreateServerForm({ onSubmit, isPending }: { onSubmit: (data: any) => void; isPending: boolean }) {
+function CreateServerForm({ onSubmit, isPending, onCancel }: { onSubmit: (data: any) => void; isPending: boolean; onCancel?: () => void }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [discoverable, setDiscoverable] = useState(false);
@@ -437,14 +535,21 @@ function CreateServerForm({ onSubmit, isPending }: { onSubmit: (data: any) => vo
         </div>
         <Switch checked={discoverable} onCheckedChange={setDiscoverable} data-testid="switch-discoverable" />
       </div>
-      <Button type="submit" className="w-full" disabled={isPending || !name.trim()} data-testid="button-submit-server">
-        Create Server
-      </Button>
+      <div className="flex gap-2">
+        {onCancel && (
+          <Button type="button" variant="outline" className="flex-1" onClick={onCancel} data-testid="button-cancel-server">
+            Cancel
+          </Button>
+        )}
+        <Button type="submit" className="flex-1" disabled={isPending || !name.trim()} data-testid="button-submit-server">
+          {isPending ? 'Creating...' : 'Create Server'}
+        </Button>
+      </div>
     </form>
   );
 }
 
-function CreateChannelForm({ onSubmit, isPending }: { onSubmit: (data: any) => void; isPending: boolean }) {
+function CreateChannelForm({ onSubmit, isPending, onCancel }: { onSubmit: (data: any) => void; isPending: boolean; onCancel?: () => void }) {
   const [name, setName] = useState('');
   const [type, setType] = useState<ChannelType>('text');
   const [topic, setTopic] = useState('');
@@ -486,9 +591,16 @@ function CreateChannelForm({ onSubmit, isPending }: { onSubmit: (data: any) => v
           data-testid="input-channel-topic"
         />
       </div>
-      <Button type="submit" className="w-full" disabled={isPending || !name.trim()} data-testid="button-submit-channel">
-        Create Channel
-      </Button>
+      <div className="flex gap-2">
+        {onCancel && (
+          <Button type="button" variant="outline" className="flex-1" onClick={onCancel} data-testid="button-cancel-channel">
+            Cancel
+          </Button>
+        )}
+        <Button type="submit" className="flex-1" disabled={isPending || !name.trim()} data-testid="button-submit-channel">
+          {isPending ? 'Creating...' : 'Create Channel'}
+        </Button>
+      </div>
     </form>
   );
 }
