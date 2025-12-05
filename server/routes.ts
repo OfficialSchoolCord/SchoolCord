@@ -3,8 +3,8 @@ import { createServer, type Server } from "http";
 import axios from "axios";
 import * as cheerio from "cheerio";
 import OpenAI from "openai";
-import { fetchRequestSchema, loginSchema, registerSchema, defaultQuickApps, aiChatRequestSchema, userRoleSchema, sendChatMessageSchema } from "@shared/schema";
-import type { ChatRoom } from "@shared/schema";
+import { fetchRequestSchema, loginSchema, registerSchema, defaultQuickApps, aiChatRequestSchema, userRoleSchema, sendChatMessageSchema, createServerSchema, createChannelSchema, sendChannelMessageSchema } from "@shared/schema";
+import type { ChatRoom, ChannelType } from "@shared/schema";
 import * as storage from "./storage";
 
 // SambaNova API client using OpenAI-compatible format
@@ -1002,6 +1002,347 @@ export async function registerRoutes(
         error: errorMessage,
       });
     }
+  });
+
+  // ==================== FRIENDS API ====================
+
+  app.get("/api/friends", requireAuth, (req: any, res) => {
+    const friends = storage.getFriends(req.userId);
+    return res.json({ friends });
+  });
+
+  app.get("/api/friend-requests", requireAuth, (req: any, res) => {
+    const incoming = storage.getPendingFriendRequests(req.userId);
+    const outgoing = storage.getSentFriendRequests(req.userId);
+    return res.json({ incoming, outgoing });
+  });
+
+  app.post("/api/friend-requests", requireAuth, (req: any, res) => {
+    const { addresseeId } = req.body;
+    if (!addresseeId) {
+      return res.status(400).json({ error: 'Target user ID required' });
+    }
+    if (addresseeId === req.userId) {
+      return res.status(400).json({ error: 'Cannot send friend request to yourself' });
+    }
+    
+    const result = storage.sendFriendRequest(req.userId, addresseeId);
+    if ('error' in result) {
+      return res.status(400).json(result);
+    }
+    return res.json({ request: result });
+  });
+
+  app.post("/api/friend-requests/:id/accept", requireAuth, (req: any, res) => {
+    const result = storage.acceptFriendRequest(req.params.id, req.userId);
+    if ('error' in result) {
+      return res.status(400).json(result);
+    }
+    return res.json({ request: result });
+  });
+
+  app.post("/api/friend-requests/:id/decline", requireAuth, (req: any, res) => {
+    const success = storage.declineFriendRequest(req.params.id, req.userId);
+    if (!success) {
+      return res.status(400).json({ error: 'Request not found or not authorized' });
+    }
+    return res.json({ success: true });
+  });
+
+  app.post("/api/friends/:id/remove", requireAuth, (req: any, res) => {
+    const success = storage.removeFriend(req.userId, req.params.id);
+    if (!success) {
+      return res.status(400).json({ error: 'Friend not found' });
+    }
+    return res.json({ success: true });
+  });
+
+  app.post("/api/users/:id/block", requireAuth, (req: any, res) => {
+    const result = storage.blockUser(req.userId, req.params.id);
+    return res.json({ blocked: result });
+  });
+
+  app.post("/api/users/:id/unblock", requireAuth, (req: any, res) => {
+    const success = storage.unblockUser(req.userId, req.params.id);
+    return res.json({ success });
+  });
+
+  // ==================== USER SETTINGS API ====================
+
+  app.get("/api/settings/friends", requireAuth, (req: any, res) => {
+    const settings = storage.getUserSettings(req.userId);
+    return res.json({ settings });
+  });
+
+  app.patch("/api/settings/friends", requireAuth, (req: any, res) => {
+    const { allowFriendRequests, messagePrivacy } = req.body;
+    const updates: any = {};
+    if (typeof allowFriendRequests === 'boolean') updates.allowFriendRequests = allowFriendRequests;
+    if (messagePrivacy) updates.messagePrivacy = messagePrivacy;
+    
+    const settings = storage.updateUserSettings(req.userId, updates);
+    return res.json({ settings });
+  });
+
+  // ==================== DM API ====================
+
+  app.get("/api/dms/threads", requireAuth, (req: any, res) => {
+    const threads = storage.getDMThreads(req.userId);
+    return res.json({ threads });
+  });
+
+  app.post("/api/dms/start", requireAuth, (req: any, res) => {
+    const { targetUserId } = req.body;
+    if (!targetUserId) {
+      return res.status(400).json({ error: 'Target user ID required' });
+    }
+    
+    const recipientSettings = storage.getUserSettings(targetUserId);
+    if (recipientSettings.messagePrivacy === 'off') {
+      return res.status(403).json({ error: 'User has disabled messages' });
+    }
+    if (recipientSettings.messagePrivacy === 'friends' && !storage.areFriends(req.userId, targetUserId)) {
+      return res.status(403).json({ error: 'User only accepts messages from friends' });
+    }
+    
+    const thread = storage.getOrCreateDMThread(req.userId, targetUserId);
+    return res.json({ thread });
+  });
+
+  app.get("/api/dms/threads/:id/messages", requireAuth, (req: any, res) => {
+    const messages = storage.getDMMessages(req.params.id, req.userId);
+    return res.json({ messages });
+  });
+
+  app.post("/api/dms/threads/:id/messages", requireAuth, (req: any, res) => {
+    const { message, imageUrl } = req.body;
+    if (!message || message.trim().length === 0) {
+      return res.status(400).json({ error: 'Message cannot be empty' });
+    }
+    
+    const result = storage.sendDMMessage(req.params.id, req.userId, message, imageUrl);
+    if (!result) {
+      return res.status(403).json({ error: 'Cannot send message to this user' });
+    }
+    return res.json({ message: result });
+  });
+
+  // ==================== SERVERS API ====================
+
+  app.get("/api/servers", requireAuth, (req: any, res) => {
+    const servers = storage.getUserServers(req.userId);
+    return res.json({ servers });
+  });
+
+  app.post("/api/servers", requireAuth, (req: any, res) => {
+    const parseResult = createServerSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ error: 'Invalid server data' });
+    }
+    
+    const { name, description, icon, discoverable, tags } = parseResult.data;
+    const server = storage.createServer(req.userId, name, description, icon, discoverable, tags);
+    return res.json({ server });
+  });
+
+  app.get("/api/servers/discover", (req: any, res) => {
+    const { search, tags } = req.query;
+    const tagArray = tags ? (tags as string).split(',') : undefined;
+    const servers = storage.getDiscoverableServers(search as string, tagArray);
+    return res.json({ servers });
+  });
+
+  app.get("/api/servers/:id", requireAuth, (req: any, res) => {
+    const server = storage.getServer(req.params.id);
+    if (!server) {
+      return res.status(404).json({ error: 'Server not found' });
+    }
+    const isMember = storage.isServerMember(req.params.id, req.userId);
+    const isAdmin = storage.isServerAdmin(req.params.id, req.userId);
+    return res.json({ server, isMember, isAdmin });
+  });
+
+  app.patch("/api/servers/:id", requireAuth, (req: any, res) => {
+    const result = storage.updateServer(req.params.id, req.userId, req.body);
+    if ('error' in result) {
+      return res.status(400).json(result);
+    }
+    return res.json({ server: result });
+  });
+
+  app.delete("/api/servers/:id", requireAuth, (req: any, res) => {
+    const success = storage.deleteServer(req.params.id, req.userId);
+    if (!success) {
+      return res.status(403).json({ error: 'Not authorized or server not found' });
+    }
+    return res.json({ success: true });
+  });
+
+  app.post("/api/servers/:id/join", requireAuth, (req: any, res) => {
+    const result = storage.joinServer(req.params.id, req.userId);
+    if ('error' in result) {
+      return res.status(400).json(result);
+    }
+    return res.json({ member: result });
+  });
+
+  app.post("/api/servers/:id/leave", requireAuth, (req: any, res) => {
+    const success = storage.leaveServer(req.params.id, req.userId);
+    if (!success) {
+      return res.status(400).json({ error: 'Cannot leave server (owner must delete)' });
+    }
+    return res.json({ success: true });
+  });
+
+  app.get("/api/servers/:id/members", requireAuth, (req: any, res) => {
+    if (!storage.isServerMember(req.params.id, req.userId)) {
+      return res.status(403).json({ error: 'Not a member' });
+    }
+    const members = storage.getServerMembers(req.params.id);
+    return res.json({ members });
+  });
+
+  // ==================== CHANNELS API ====================
+
+  app.get("/api/servers/:id/channels", requireAuth, (req: any, res) => {
+    if (!storage.isServerMember(req.params.id, req.userId)) {
+      return res.status(403).json({ error: 'Not a member' });
+    }
+    const channels = storage.getServerChannels(req.params.id);
+    return res.json({ channels });
+  });
+
+  app.post("/api/servers/:id/channels", requireAuth, (req: any, res) => {
+    const parseResult = createChannelSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ error: 'Invalid channel data' });
+    }
+    
+    const { name, type, topic } = parseResult.data;
+    const result = storage.createChannel(req.params.id, req.userId, name, type, topic);
+    if ('error' in result) {
+      return res.status(403).json(result);
+    }
+    return res.json({ channel: result });
+  });
+
+  app.patch("/api/channels/:id", requireAuth, (req: any, res) => {
+    const result = storage.updateChannel(req.params.id, req.userId, req.body);
+    if ('error' in result) {
+      return res.status(400).json(result);
+    }
+    return res.json({ channel: result });
+  });
+
+  app.delete("/api/channels/:id", requireAuth, (req: any, res) => {
+    const success = storage.deleteChannel(req.params.id, req.userId);
+    if (!success) {
+      return res.status(403).json({ error: 'Not authorized or channel not found' });
+    }
+    return res.json({ success: true });
+  });
+
+  app.get("/api/channels/:id/messages", requireAuth, (req: any, res) => {
+    const messages = storage.getChannelMessages(req.params.id);
+    return res.json({ messages });
+  });
+
+  app.post("/api/channels/:id/messages", requireAuth, (req: any, res) => {
+    const parseResult = sendChannelMessageSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ error: 'Invalid message' });
+    }
+    
+    const { message, imageUrl, quotedMessageId } = parseResult.data;
+    const result = storage.sendChannelMessage(req.params.id, req.userId, message, imageUrl, quotedMessageId);
+    if ('error' in result) {
+      return res.status(403).json(result);
+    }
+    return res.json({ message: result });
+  });
+
+  // ==================== BOTS API (STUBS) ====================
+
+  app.get("/api/servers/:id/bots", requireAuth, (req: any, res) => {
+    if (!storage.isServerMember(req.params.id, req.userId)) {
+      return res.status(403).json({ error: 'Not a member' });
+    }
+    const bots = storage.getServerBots(req.params.id);
+    return res.json({ bots });
+  });
+
+  app.post("/api/servers/:id/bots", requireAuth, (req: any, res) => {
+    const { name, description } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Bot name required' });
+    }
+    const result = storage.addBot(req.params.id, req.userId, name, description);
+    if ('error' in result) {
+      return res.status(403).json(result);
+    }
+    return res.json({ bot: result });
+  });
+
+  app.delete("/api/bots/:id", requireAuth, (req: any, res) => {
+    const success = storage.removeBot(req.params.id, req.userId);
+    if (!success) {
+      return res.status(403).json({ error: 'Not authorized or bot not found' });
+    }
+    return res.json({ success: true });
+  });
+
+  // ==================== VOICE API (STUB) ====================
+
+  app.post("/api/voice/:channelId/connect", requireAuth, (req: any, res) => {
+    return res.status(501).json({ 
+      error: 'Voice channels are not yet implemented',
+      message: 'Voice functionality will be available in a future update'
+    });
+  });
+
+  app.post("/api/voice/:channelId/disconnect", requireAuth, (req: any, res) => {
+    return res.status(501).json({ 
+      error: 'Voice channels are not yet implemented'
+    });
+  });
+
+  // ==================== USER LOOKUP API ====================
+
+  app.get("/api/users/search", requireAuth, (req: any, res) => {
+    const { q } = req.query;
+    if (!q || typeof q !== 'string' || q.length < 2) {
+      return res.json({ users: [] });
+    }
+    
+    const allUsers = storage.getAllUsers();
+    const matches = allUsers
+      .filter(u => u.username.toLowerCase().includes(q.toLowerCase()) && u.id !== req.userId)
+      .slice(0, 10)
+      .map(u => ({
+        id: u.id,
+        username: u.username,
+        profilePicture: u.profilePicture,
+        level: u.level || 1,
+      }));
+    
+    return res.json({ users: matches });
+  });
+
+  app.get("/api/users/:id/profile", requireAuth, (req: any, res) => {
+    const user = storage.getUser(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const { password, ...userWithoutPassword } = user;
+    const isFriend = storage.areFriends(req.userId, req.params.id);
+    const isBlocked = storage.isBlocked(req.userId, req.params.id);
+    
+    return res.json({ 
+      user: userWithoutPassword,
+      isFriend,
+      isBlocked,
+    });
   });
 
   return httpServer;

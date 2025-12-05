@@ -1,4 +1,9 @@
-import type { User, QuickApp, BlockedWebsite, HistoryItem, UserRole, ChatMessage, ChatRoom, Quest, UserQuestData } from "@shared/schema";
+import type { 
+  User, QuickApp, BlockedWebsite, HistoryItem, UserRole, ChatMessage, ChatRoom, Quest, UserQuestData,
+  FriendRequest, FriendStatus, UserSettings, MessagePrivacy,
+  DMThread, DMMessage,
+  Server, ServerMember, ServerRole, Channel, ChannelMessage, ChannelType, BotConfig
+} from "@shared/schema";
 import { DEFAULT_QUESTS, QUEST_RESET_INTERVAL_MS, DAILY_QUEST_LIMIT } from "@shared/schema";
 import fs from 'fs';
 import path from 'path';
@@ -7,6 +12,10 @@ const DATA_DIR = path.join(process.cwd(), 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const CHAT_FILE = path.join(DATA_DIR, 'chat.json');
 const QUESTS_FILE = path.join(DATA_DIR, 'quests.json');
+const FRIENDS_FILE = path.join(DATA_DIR, 'friends.json');
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+const DMS_FILE = path.join(DATA_DIR, 'dms.json');
+const SERVERS_FILE = path.join(DATA_DIR, 'servers.json');
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -86,6 +95,144 @@ function saveQuests() {
     fs.writeFileSync(QUESTS_FILE, JSON.stringify(data, null, 2));
   } catch (error) {
     console.error('Error saving quests:', error);
+  }
+}
+
+// ==================== FRIENDS SYSTEM ====================
+
+function loadFriends(): Map<string, FriendRequest> {
+  try {
+    if (fs.existsSync(FRIENDS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(FRIENDS_FILE, 'utf-8'));
+      return new Map(Object.entries(data));
+    }
+  } catch (error) {
+    console.error('Error loading friends:', error);
+  }
+  return new Map();
+}
+
+function saveFriends() {
+  try {
+    const data = Object.fromEntries(storage.friends.entries());
+    fs.writeFileSync(FRIENDS_FILE, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error('Error saving friends:', error);
+  }
+}
+
+function loadUserSettings(): Map<string, UserSettings> {
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+      return new Map(Object.entries(data));
+    }
+  } catch (error) {
+    console.error('Error loading settings:', error);
+  }
+  return new Map();
+}
+
+function saveUserSettings() {
+  try {
+    const data = Object.fromEntries(storage.userSettings.entries());
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error('Error saving settings:', error);
+  }
+}
+
+// ==================== DM SYSTEM ====================
+
+interface DMData {
+  threads: Record<string, DMThread>;
+  messages: Record<string, DMMessage[]>;
+}
+
+function loadDMs(): { threads: Map<string, DMThread>; messages: Map<string, DMMessage[]> } {
+  try {
+    if (fs.existsSync(DMS_FILE)) {
+      const data: DMData = JSON.parse(fs.readFileSync(DMS_FILE, 'utf-8'));
+      return {
+        threads: new Map(Object.entries(data.threads || {})),
+        messages: new Map(Object.entries(data.messages || {})),
+      };
+    }
+  } catch (error) {
+    console.error('Error loading DMs:', error);
+  }
+  return { threads: new Map(), messages: new Map() };
+}
+
+function saveDMs() {
+  try {
+    const data: DMData = {
+      threads: Object.fromEntries(storage.dmThreads.entries()),
+      messages: Object.fromEntries(storage.dmMessages.entries()),
+    };
+    fs.writeFileSync(DMS_FILE, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error('Error saving DMs:', error);
+  }
+}
+
+// ==================== SERVERS SYSTEM ====================
+
+interface ServerData {
+  servers: Record<string, Server>;
+  members: Record<string, ServerMember[]>;
+  roles: Record<string, ServerRole[]>;
+  channels: Record<string, Channel[]>;
+  channelMessages: Record<string, ChannelMessage[]>;
+  bots: Record<string, BotConfig[]>;
+}
+
+function loadServers(): { 
+  servers: Map<string, Server>; 
+  members: Map<string, ServerMember[]>;
+  roles: Map<string, ServerRole[]>;
+  channels: Map<string, Channel[]>;
+  channelMessages: Map<string, ChannelMessage[]>;
+  bots: Map<string, BotConfig[]>;
+} {
+  try {
+    if (fs.existsSync(SERVERS_FILE)) {
+      const data: ServerData = JSON.parse(fs.readFileSync(SERVERS_FILE, 'utf-8'));
+      return {
+        servers: new Map(Object.entries(data.servers || {})),
+        members: new Map(Object.entries(data.members || {})),
+        roles: new Map(Object.entries(data.roles || {})),
+        channels: new Map(Object.entries(data.channels || {})),
+        channelMessages: new Map(Object.entries(data.channelMessages || {})),
+        bots: new Map(Object.entries(data.bots || {})),
+      };
+    }
+  } catch (error) {
+    console.error('Error loading servers:', error);
+  }
+  return { 
+    servers: new Map(), 
+    members: new Map(), 
+    roles: new Map(), 
+    channels: new Map(), 
+    channelMessages: new Map(),
+    bots: new Map(),
+  };
+}
+
+function saveServers() {
+  try {
+    const data: ServerData = {
+      servers: Object.fromEntries(storage.servers.entries()),
+      members: Object.fromEntries(storage.serverMembers.entries()),
+      roles: Object.fromEntries(storage.serverRoles.entries()),
+      channels: Object.fromEntries(storage.channels.entries()),
+      channelMessages: Object.fromEntries(storage.channelMessages.entries()),
+      bots: Object.fromEntries(storage.bots.entries()),
+    };
+    fs.writeFileSync(SERVERS_FILE, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error('Error saving servers:', error);
   }
 }
 
@@ -239,6 +386,10 @@ interface Announcement {
   expiresAt: string;
 }
 
+// Load DM and server data
+const dmData = loadDMs();
+const serverData = loadServers();
+
 // In-memory storage with persistence
 export const storage = {
   users: loadUsers(),
@@ -252,6 +403,22 @@ export const storage = {
   chatMessages: loadChatMessages(),
   quests: loadQuests(),
   announcements: [] as Announcement[],
+  
+  // Friends system
+  friends: loadFriends(),
+  userSettings: loadUserSettings(),
+  
+  // DM system
+  dmThreads: dmData.threads,
+  dmMessages: dmData.messages,
+  
+  // Servers system
+  servers: serverData.servers,
+  serverMembers: serverData.members,
+  serverRoles: serverData.roles,
+  channels: serverData.channels,
+  channelMessages: serverData.channelMessages,
+  bots: serverData.bots,
 };
 
 // Initialize admin account
@@ -741,4 +908,667 @@ export function resetAllUserQuests(): void {
       resetUserQuests(user.id);
     }
   }
+}
+
+// ==================== FRIENDS CRUD ====================
+
+export function getUserSettings(userId: string): UserSettings {
+  let settings = storage.userSettings.get(userId);
+  if (!settings) {
+    settings = {
+      userId,
+      allowFriendRequests: true,
+      messagePrivacy: 'public' as MessagePrivacy,
+    };
+    storage.userSettings.set(userId, settings);
+    saveUserSettings();
+  }
+  return settings;
+}
+
+export function updateUserSettings(userId: string, updates: Partial<UserSettings>): UserSettings {
+  const settings = getUserSettings(userId);
+  const updated = { ...settings, ...updates };
+  storage.userSettings.set(userId, updated);
+  saveUserSettings();
+  return updated;
+}
+
+export function sendFriendRequest(requesterId: string, addresseeId: string): FriendRequest | { error: string } {
+  // Check if addressee allows friend requests
+  const addresseeSettings = getUserSettings(addresseeId);
+  if (!addresseeSettings.allowFriendRequests) {
+    return { error: 'User has disabled friend requests' };
+  }
+  
+  // Check if already friends or pending request
+  for (const request of storage.friends.values()) {
+    if ((request.requesterId === requesterId && request.addresseeId === addresseeId) ||
+        (request.requesterId === addresseeId && request.addresseeId === requesterId)) {
+      if (request.status === 'accepted') {
+        return { error: 'Already friends' };
+      }
+      if (request.status === 'pending') {
+        return { error: 'Friend request already pending' };
+      }
+      if (request.status === 'blocked') {
+        return { error: 'Unable to send request' };
+      }
+    }
+  }
+  
+  const id = `friend-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const request: FriendRequest = {
+    id,
+    requesterId,
+    addresseeId,
+    status: 'pending' as FriendStatus,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  
+  storage.friends.set(id, request);
+  saveFriends();
+  return request;
+}
+
+export function acceptFriendRequest(requestId: string, userId: string): FriendRequest | { error: string } {
+  const request = storage.friends.get(requestId);
+  if (!request) {
+    return { error: 'Request not found' };
+  }
+  if (request.addresseeId !== userId) {
+    return { error: 'Not authorized to accept this request' };
+  }
+  if (request.status !== 'pending') {
+    return { error: 'Request is not pending' };
+  }
+  
+  request.status = 'accepted' as FriendStatus;
+  request.updatedAt = new Date().toISOString();
+  storage.friends.set(requestId, request);
+  saveFriends();
+  return request;
+}
+
+export function declineFriendRequest(requestId: string, userId: string): boolean {
+  const request = storage.friends.get(requestId);
+  if (!request) return false;
+  if (request.addresseeId !== userId) return false;
+  
+  storage.friends.delete(requestId);
+  saveFriends();
+  return true;
+}
+
+export function blockUser(userId: string, blockUserId: string): FriendRequest {
+  // Remove any existing friendship
+  for (const [id, request] of storage.friends.entries()) {
+    if ((request.requesterId === userId && request.addresseeId === blockUserId) ||
+        (request.requesterId === blockUserId && request.addresseeId === userId)) {
+      storage.friends.delete(id);
+    }
+  }
+  
+  const id = `friend-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const blocked: FriendRequest = {
+    id,
+    requesterId: userId,
+    addresseeId: blockUserId,
+    status: 'blocked' as FriendStatus,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  
+  storage.friends.set(id, blocked);
+  saveFriends();
+  return blocked;
+}
+
+export function unblockUser(userId: string, blockedUserId: string): boolean {
+  for (const [id, request] of storage.friends.entries()) {
+    if (request.requesterId === userId && request.addresseeId === blockedUserId && request.status === 'blocked') {
+      storage.friends.delete(id);
+      saveFriends();
+      return true;
+    }
+  }
+  return false;
+}
+
+export function getFriends(userId: string): (User & { friendshipId: string })[] {
+  const friends: (User & { friendshipId: string })[] = [];
+  
+  for (const [id, request] of storage.friends.entries()) {
+    if (request.status !== 'accepted') continue;
+    
+    let friendId: string | null = null;
+    if (request.requesterId === userId) {
+      friendId = request.addresseeId;
+    } else if (request.addresseeId === userId) {
+      friendId = request.requesterId;
+    }
+    
+    if (friendId) {
+      const user = storage.users.get(friendId);
+      if (user) {
+        const { password, ...userWithoutPassword } = user;
+        friends.push({ ...userWithoutPassword, friendshipId: id });
+      }
+    }
+  }
+  
+  return friends;
+}
+
+export function getPendingFriendRequests(userId: string): (FriendRequest & { requesterUser?: Partial<User> })[] {
+  const requests: (FriendRequest & { requesterUser?: Partial<User> })[] = [];
+  
+  for (const request of storage.friends.values()) {
+    if (request.addresseeId === userId && request.status === 'pending') {
+      const requester = storage.users.get(request.requesterId);
+      if (requester) {
+        const { password, ...requesterWithoutPassword } = requester;
+        requests.push({ ...request, requesterUser: requesterWithoutPassword });
+      } else {
+        requests.push(request);
+      }
+    }
+  }
+  
+  return requests;
+}
+
+export function getSentFriendRequests(userId: string): FriendRequest[] {
+  const requests: FriendRequest[] = [];
+  
+  for (const request of storage.friends.values()) {
+    if (request.requesterId === userId && request.status === 'pending') {
+      requests.push(request);
+    }
+  }
+  
+  return requests;
+}
+
+export function areFriends(userId1: string, userId2: string): boolean {
+  for (const request of storage.friends.values()) {
+    if (request.status === 'accepted' &&
+        ((request.requesterId === userId1 && request.addresseeId === userId2) ||
+         (request.requesterId === userId2 && request.addresseeId === userId1))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function isBlocked(userId: string, blockedById: string): boolean {
+  for (const request of storage.friends.values()) {
+    if (request.status === 'blocked' &&
+        request.requesterId === blockedById &&
+        request.addresseeId === userId) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function removeFriend(userId: string, friendId: string): boolean {
+  for (const [id, request] of storage.friends.entries()) {
+    if (request.status === 'accepted' &&
+        ((request.requesterId === userId && request.addresseeId === friendId) ||
+         (request.requesterId === friendId && request.addresseeId === userId))) {
+      storage.friends.delete(id);
+      saveFriends();
+      return true;
+    }
+  }
+  return false;
+}
+
+// ==================== DM CRUD ====================
+
+export function getOrCreateDMThread(userId1: string, userId2: string): DMThread {
+  // Sort user IDs to create consistent thread lookup
+  const sortedIds = [userId1, userId2].sort();
+  
+  // Check for existing thread
+  for (const thread of storage.dmThreads.values()) {
+    const threadIds = [...thread.memberIds].sort();
+    if (threadIds[0] === sortedIds[0] && threadIds[1] === sortedIds[1]) {
+      return thread;
+    }
+  }
+  
+  // Create new thread
+  const id = `dm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const thread: DMThread = {
+    id,
+    memberIds: [userId1, userId2],
+    lastMessageAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+  };
+  
+  storage.dmThreads.set(id, thread);
+  storage.dmMessages.set(id, []);
+  saveDMs();
+  return thread;
+}
+
+export function getDMThreads(userId: string): (DMThread & { otherUser?: Partial<User> })[] {
+  const threads: (DMThread & { otherUser?: Partial<User> })[] = [];
+  
+  for (const thread of storage.dmThreads.values()) {
+    if (thread.memberIds.includes(userId)) {
+      const otherUserId = thread.memberIds.find(id => id !== userId);
+      const otherUser = otherUserId ? storage.users.get(otherUserId) : null;
+      
+      if (otherUser) {
+        const { password, ...userWithoutPassword } = otherUser;
+        threads.push({ ...thread, otherUser: userWithoutPassword });
+      } else {
+        threads.push(thread);
+      }
+    }
+  }
+  
+  return threads.sort((a, b) => 
+    new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+  );
+}
+
+export function getDMMessages(threadId: string, userId: string): DMMessage[] {
+  const thread = storage.dmThreads.get(threadId);
+  if (!thread || !thread.memberIds.includes(userId)) {
+    return [];
+  }
+  return storage.dmMessages.get(threadId) || [];
+}
+
+export function sendDMMessage(threadId: string, senderId: string, message: string, imageUrl?: string): DMMessage | null {
+  const thread = storage.dmThreads.get(threadId);
+  if (!thread || !thread.memberIds.includes(senderId)) {
+    return null;
+  }
+  
+  // Check message privacy settings for recipient
+  const recipientId = thread.memberIds.find(id => id !== senderId);
+  if (recipientId) {
+    const recipientSettings = getUserSettings(recipientId);
+    if (recipientSettings.messagePrivacy === 'off') {
+      return null;
+    }
+    if (recipientSettings.messagePrivacy === 'friends' && !areFriends(senderId, recipientId)) {
+      return null;
+    }
+  }
+  
+  const id = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const dmMessage: DMMessage = {
+    id,
+    threadId,
+    senderId,
+    message,
+    timestamp: new Date().toISOString(),
+    imageUrl,
+  };
+  
+  const messages = storage.dmMessages.get(threadId) || [];
+  messages.push(dmMessage);
+  if (messages.length > 500) messages.shift(); // Keep last 500 messages
+  storage.dmMessages.set(threadId, messages);
+  
+  // Update thread lastMessageAt
+  thread.lastMessageAt = dmMessage.timestamp;
+  storage.dmThreads.set(threadId, thread);
+  
+  saveDMs();
+  return dmMessage;
+}
+
+// ==================== SERVERS CRUD ====================
+
+export function createServer(ownerId: string, name: string, description?: string, icon?: string, discoverable: boolean = false, tags: string[] = []): Server {
+  const id = `server-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const server: Server = {
+    id,
+    ownerId,
+    name,
+    description,
+    icon,
+    discoverable,
+    tags,
+    createdAt: new Date().toISOString(),
+  };
+  
+  storage.servers.set(id, server);
+  
+  // Add owner as first member
+  const memberId = `member-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const member: ServerMember = {
+    id: memberId,
+    serverId: id,
+    userId: ownerId,
+    roles: ['owner'],
+    joinedAt: new Date().toISOString(),
+  };
+  storage.serverMembers.set(id, [member]);
+  
+  // Create default general channel
+  const channelId = `channel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const generalChannel: Channel = {
+    id: channelId,
+    serverId: id,
+    name: 'general',
+    type: 'text' as ChannelType,
+    position: 0,
+    createdAt: new Date().toISOString(),
+  };
+  storage.channels.set(id, [generalChannel]);
+  storage.channelMessages.set(channelId, []);
+  
+  saveServers();
+  return server;
+}
+
+export function getServer(serverId: string): Server | null {
+  return storage.servers.get(serverId) || null;
+}
+
+export function updateServer(serverId: string, userId: string, updates: Partial<Server>): Server | { error: string } {
+  const server = storage.servers.get(serverId);
+  if (!server) return { error: 'Server not found' };
+  
+  // Check if user has permission (owner or admin role)
+  if (!isServerAdmin(serverId, userId)) {
+    return { error: 'Not authorized' };
+  }
+  
+  const updated = { ...server, ...updates, id: server.id, ownerId: server.ownerId };
+  storage.servers.set(serverId, updated);
+  saveServers();
+  return updated;
+}
+
+export function deleteServer(serverId: string, userId: string): boolean {
+  const server = storage.servers.get(serverId);
+  if (!server || server.ownerId !== userId) return false;
+  
+  storage.servers.delete(serverId);
+  storage.serverMembers.delete(serverId);
+  storage.serverRoles.delete(serverId);
+  
+  // Delete all channels and messages
+  const channels = storage.channels.get(serverId) || [];
+  for (const channel of channels) {
+    storage.channelMessages.delete(channel.id);
+  }
+  storage.channels.delete(serverId);
+  storage.bots.delete(serverId);
+  
+  saveServers();
+  return true;
+}
+
+export function getUserServers(userId: string): Server[] {
+  const servers: Server[] = [];
+  
+  for (const [serverId, members] of storage.serverMembers.entries()) {
+    if (members.some(m => m.userId === userId)) {
+      const server = storage.servers.get(serverId);
+      if (server) servers.push(server);
+    }
+  }
+  
+  return servers;
+}
+
+export function getDiscoverableServers(search?: string, tags?: string[]): Server[] {
+  const servers: Server[] = [];
+  
+  for (const server of storage.servers.values()) {
+    if (!server.discoverable) continue;
+    
+    if (search && !server.name.toLowerCase().includes(search.toLowerCase()) &&
+        !server.description?.toLowerCase().includes(search.toLowerCase())) {
+      continue;
+    }
+    
+    if (tags && tags.length > 0) {
+      const hasTag = tags.some(tag => server.tags.includes(tag));
+      if (!hasTag) continue;
+    }
+    
+    servers.push(server);
+  }
+  
+  return servers;
+}
+
+export function joinServer(serverId: string, userId: string): ServerMember | { error: string } {
+  const server = storage.servers.get(serverId);
+  if (!server) return { error: 'Server not found' };
+  
+  const members = storage.serverMembers.get(serverId) || [];
+  if (members.some(m => m.userId === userId)) {
+    return { error: 'Already a member' };
+  }
+  
+  const member: ServerMember = {
+    id: `member-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    serverId,
+    userId,
+    roles: [],
+    joinedAt: new Date().toISOString(),
+  };
+  
+  members.push(member);
+  storage.serverMembers.set(serverId, members);
+  saveServers();
+  return member;
+}
+
+export function leaveServer(serverId: string, userId: string): boolean {
+  const server = storage.servers.get(serverId);
+  if (!server) return false;
+  
+  // Owner can't leave, must delete or transfer
+  if (server.ownerId === userId) return false;
+  
+  const members = storage.serverMembers.get(serverId) || [];
+  const newMembers = members.filter(m => m.userId !== userId);
+  
+  if (newMembers.length === members.length) return false;
+  
+  storage.serverMembers.set(serverId, newMembers);
+  saveServers();
+  return true;
+}
+
+export function getServerMembers(serverId: string): (ServerMember & { user?: Partial<User> })[] {
+  const members = storage.serverMembers.get(serverId) || [];
+  
+  return members.map(member => {
+    const user = storage.users.get(member.userId);
+    if (user) {
+      const { password, ...userWithoutPassword } = user;
+      return { ...member, user: userWithoutPassword };
+    }
+    return member;
+  });
+}
+
+export function isServerMember(serverId: string, userId: string): boolean {
+  const members = storage.serverMembers.get(serverId) || [];
+  return members.some(m => m.userId === userId);
+}
+
+export function isServerAdmin(serverId: string, userId: string): boolean {
+  const server = storage.servers.get(serverId);
+  if (!server) return false;
+  if (server.ownerId === userId) return true;
+  
+  const members = storage.serverMembers.get(serverId) || [];
+  const member = members.find(m => m.userId === userId);
+  return member?.roles.includes('admin') || false;
+}
+
+// ==================== CHANNELS CRUD ====================
+
+export function createChannel(serverId: string, userId: string, name: string, type: ChannelType, topic?: string): Channel | { error: string } {
+  if (!isServerAdmin(serverId, userId)) {
+    return { error: 'Not authorized' };
+  }
+  
+  const channels = storage.channels.get(serverId) || [];
+  const id = `channel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  
+  const channel: Channel = {
+    id,
+    serverId,
+    name,
+    type,
+    topic,
+    position: channels.length,
+    createdAt: new Date().toISOString(),
+  };
+  
+  channels.push(channel);
+  storage.channels.set(serverId, channels);
+  storage.channelMessages.set(id, []);
+  saveServers();
+  return channel;
+}
+
+export function getServerChannels(serverId: string): Channel[] {
+  return (storage.channels.get(serverId) || []).sort((a, b) => a.position - b.position);
+}
+
+export function updateChannel(channelId: string, userId: string, updates: Partial<Channel>): Channel | { error: string } {
+  for (const [serverId, channels] of storage.channels.entries()) {
+    const channelIndex = channels.findIndex(c => c.id === channelId);
+    if (channelIndex !== -1) {
+      if (!isServerAdmin(serverId, userId)) {
+        return { error: 'Not authorized' };
+      }
+      
+      const updated = { ...channels[channelIndex], ...updates, id: channelId, serverId };
+      channels[channelIndex] = updated;
+      storage.channels.set(serverId, channels);
+      saveServers();
+      return updated;
+    }
+  }
+  
+  return { error: 'Channel not found' };
+}
+
+export function deleteChannel(channelId: string, userId: string): boolean {
+  for (const [serverId, channels] of storage.channels.entries()) {
+    const channelIndex = channels.findIndex(c => c.id === channelId);
+    if (channelIndex !== -1) {
+      if (!isServerAdmin(serverId, userId)) return false;
+      
+      channels.splice(channelIndex, 1);
+      storage.channels.set(serverId, channels);
+      storage.channelMessages.delete(channelId);
+      saveServers();
+      return true;
+    }
+  }
+  return false;
+}
+
+export function getChannelMessages(channelId: string): ChannelMessage[] {
+  return storage.channelMessages.get(channelId) || [];
+}
+
+export function sendChannelMessage(
+  channelId: string, 
+  userId: string, 
+  message: string, 
+  imageUrl?: string,
+  quotedMessageId?: string
+): ChannelMessage | { error: string } {
+  // Find the channel and check membership
+  let serverId: string | null = null;
+  for (const [sId, channels] of storage.channels.entries()) {
+    if (channels.some(c => c.id === channelId)) {
+      serverId = sId;
+      break;
+    }
+  }
+  
+  if (!serverId || !isServerMember(serverId, userId)) {
+    return { error: 'Not a member of this server' };
+  }
+  
+  const user = storage.users.get(userId);
+  if (!user) return { error: 'User not found' };
+  
+  const id = `cmsg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const channelMessage: ChannelMessage = {
+    id,
+    channelId,
+    userId,
+    username: user.username,
+    profilePicture: user.profilePicture,
+    message,
+    timestamp: new Date().toISOString(),
+    imageUrl,
+    quotedMessageId,
+    level: user.level,
+    badge: user.badges[user.badges.length - 1],
+  };
+  
+  const messages = storage.channelMessages.get(channelId) || [];
+  messages.push(channelMessage);
+  if (messages.length > 500) messages.shift();
+  storage.channelMessages.set(channelId, messages);
+  saveServers();
+  
+  return channelMessage;
+}
+
+// ==================== BOTS CRUD ====================
+
+export function addBot(serverId: string, userId: string, name: string, description?: string): BotConfig | { error: string } {
+  if (!isServerAdmin(serverId, userId)) {
+    return { error: 'Not authorized' };
+  }
+  
+  const id = `bot-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const bot: BotConfig = {
+    id,
+    serverId,
+    name,
+    description,
+    enabled: true,
+    createdAt: new Date().toISOString(),
+  };
+  
+  const bots = storage.bots.get(serverId) || [];
+  bots.push(bot);
+  storage.bots.set(serverId, bots);
+  saveServers();
+  return bot;
+}
+
+export function getServerBots(serverId: string): BotConfig[] {
+  return storage.bots.get(serverId) || [];
+}
+
+export function removeBot(botId: string, userId: string): boolean {
+  for (const [serverId, bots] of storage.bots.entries()) {
+    const botIndex = bots.findIndex(b => b.id === botId);
+    if (botIndex !== -1) {
+      if (!isServerAdmin(serverId, userId)) return false;
+      
+      bots.splice(botIndex, 1);
+      storage.bots.set(serverId, bots);
+      saveServers();
+      return true;
+    }
+  }
+  return false;
 }

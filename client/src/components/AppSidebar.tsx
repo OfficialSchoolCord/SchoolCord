@@ -9,7 +9,10 @@ import {
   Shield,
   Sparkles,
   Trophy,
-  Gamepad2
+  Gamepad2,
+  Users,
+  Server,
+  Compass
 } from 'lucide-react';
 import {
   Sidebar,
@@ -21,27 +24,31 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import type { NavItemId, UserRole } from '@shared/schema';
+import type { UserRole, ExtendedNavItemId } from '@shared/schema';
 
 interface AppSidebarProps {
-  activeNav: NavItemId | null;
-  onNavChange: (id: NavItemId) => void;
+  activeNav: ExtendedNavItemId | null;
+  onNavChange: (id: ExtendedNavItemId) => void;
   userRole?: UserRole;
 }
 
-const baseNavItems: { id: NavItemId; label: string; icon: typeof Home }[] = [
+const baseNavItems: { id: ExtendedNavItemId; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'Home', icon: Sparkles },
   { id: 'search', label: 'Search', icon: Search },
   { id: 'apps', label: 'Apps', icon: Grid3X3 },
+  { id: 'games', label: 'Games', icon: Gamepad2 },
   { id: 'ai', label: 'AI Assistant', icon: MessageSquare },
   { id: 'chat', label: 'Chat', icon: MessageSquare },
+  { id: 'friends', label: 'Friends', icon: Users },
+  { id: 'servers', label: 'Servers', icon: Server },
+  { id: 'discovery', label: 'Discovery', icon: Compass },
   { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
   { id: 'settings', label: 'Settings', icon: Settings },
   { id: 'history', label: 'History', icon: Clock },
   { id: 'profile', label: 'Profile', icon: User },
 ];
 
-const adminNavItem = { id: 'admin' as NavItemId, label: 'Admin', icon: Shield };
+const adminNavItem = { id: 'admin' as ExtendedNavItemId, label: 'Admin', icon: Shield };
 
 export function AppSidebar({ activeNav, onNavChange, userRole = 'user' }: AppSidebarProps) {
   const hasModeratorAccess = userRole === 'admin' || userRole === 'mod';
@@ -49,14 +56,6 @@ export function AppSidebar({ activeNav, onNavChange, userRole = 'user' }: AppSid
   const navItems = hasModeratorAccess 
     ? [...baseNavItems.slice(0, -1), adminNavItem, baseNavItems[baseNavItems.length - 1]]
     : baseNavItems;
-
-  // Add Games navigation item to sidebar
-  const updatedNavItems = [
-    ...navItems.slice(0, 3), // Home, Search, Apps
-    { id: 'games', label: 'Games', icon: Gamepad2 }, // Games tab
-    ...navItems.slice(3), // Rest of the items
-  ];
-
 
   return (
     <Sidebar 
@@ -77,7 +76,7 @@ export function AppSidebar({ activeNav, onNavChange, userRole = 'user' }: AppSid
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {updatedNavItems.map((item) => {
+              {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeNav === item.id;
 

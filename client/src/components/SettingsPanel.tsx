@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { X, Moon, Shield, Trash2, Code, Palette, Type, Maximize, Award } from 'lucide-react';
+import { X, Moon, Shield, Trash2, Code, Palette, Type, Maximize, Award, Users, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 
 interface SettingsPanelProps {
   privacyMode: boolean;
@@ -13,6 +15,11 @@ interface SettingsPanelProps {
   onClearHistory: () => void;
   onClose: () => void;
   sessionId: string | null;
+}
+
+interface SocialSettings {
+  allowFriendRequests: boolean;
+  messagePrivacy: 'everyone' | 'friends' | 'off';
 }
 
 export function SettingsPanel({ 
@@ -37,6 +44,23 @@ export function SettingsPanel({
   });
   const [customBadge, setCustomBadge] = useState(() => {
     return localStorage.getItem('illing-star-custom-badge') || '';
+  });
+
+  const { data: socialSettings } = useQuery<{ settings: SocialSettings }>({
+    queryKey: ['/api/settings/friends'],
+    enabled: !!sessionId,
+  });
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (updates: Partial<SocialSettings>) => {
+      return apiRequest('/api/settings/friends', {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/settings/friends'] });
+    },
   });
 
   useEffect(() => {
@@ -168,6 +192,52 @@ export function SettingsPanel({
               Clear
             </Button>
           </SettingItem>
+
+          {sessionId && (
+            <div className="pt-4 border-t border-white/10">
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="w-5 h-5 text-primary" />
+                <h3 className="text-lg font-semibold text-white">Social Settings</h3>
+              </div>
+
+              <div className="space-y-6">
+                <SettingItem
+                  icon={<Users className="w-5 h-5" />}
+                  title="Allow Friend Requests"
+                  description={socialSettings?.settings?.allowFriendRequests 
+                    ? "Anyone can send you friend requests" 
+                    : "Friend requests are disabled"}
+                >
+                  <Switch 
+                    checked={socialSettings?.settings?.allowFriendRequests ?? true} 
+                    onCheckedChange={(checked) => updateSettingsMutation.mutate({ allowFriendRequests: checked })}
+                    className="data-[state=checked]:bg-primary" 
+                    data-testid="switch-friend-requests" 
+                  />
+                </SettingItem>
+
+                <SettingItem
+                  icon={<MessageCircle className="w-5 h-5" />}
+                  title="Message Privacy"
+                  description="Who can send you direct messages"
+                >
+                  <Select 
+                    value={socialSettings?.settings?.messagePrivacy || 'everyone'} 
+                    onValueChange={(value) => updateSettingsMutation.mutate({ messagePrivacy: value as SocialSettings['messagePrivacy'] })}
+                  >
+                    <SelectTrigger className="w-32 bg-white/5 border-white/10 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="everyone">Everyone</SelectItem>
+                      <SelectItem value="friends">Friends Only</SelectItem>
+                      <SelectItem value="off">No One</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </SettingItem>
+              </div>
+            </div>
+          )}
 
           {devMode && (
             <>

@@ -262,3 +262,174 @@ export const DEFAULT_QUESTS: Omit<Quest, 'id' | 'progress' | 'completed'>[] = [
   { type: 'daily_login', title: 'Daily Check-in', description: 'Log in today', xpReward: 25, requirement: 1 },
   { type: 'daily_share', title: 'Sharing is Caring', description: 'Share a link or image', xpReward: 100, requirement: 1 },
 ];
+
+// ==================== FRIENDS SYSTEM ====================
+
+export const friendStatusSchema = z.enum(['pending', 'accepted', 'blocked']);
+export type FriendStatus = z.infer<typeof friendStatusSchema>;
+
+export const friendRequestSchema = z.object({
+  id: z.string(),
+  requesterId: z.string(),
+  addresseeId: z.string(),
+  status: friendStatusSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type FriendRequest = z.infer<typeof friendRequestSchema>;
+
+export const messagePrivacySchema = z.enum(['public', 'friends', 'off']);
+export type MessagePrivacy = z.infer<typeof messagePrivacySchema>;
+
+export const userSettingsSchema = z.object({
+  userId: z.string(),
+  allowFriendRequests: z.boolean().default(true),
+  messagePrivacy: messagePrivacySchema.default('public'),
+});
+
+export type UserSettings = z.infer<typeof userSettingsSchema>;
+
+// ==================== DIRECT MESSAGES ====================
+
+export const dmThreadSchema = z.object({
+  id: z.string(),
+  memberIds: z.array(z.string()).length(2),
+  lastMessageAt: z.string(),
+  createdAt: z.string(),
+});
+
+export type DMThread = z.infer<typeof dmThreadSchema>;
+
+export const dmMessageSchema = z.object({
+  id: z.string(),
+  threadId: z.string(),
+  senderId: z.string(),
+  message: z.string(),
+  timestamp: z.string(),
+  imageUrl: z.string().optional(),
+});
+
+export type DMMessage = z.infer<typeof dmMessageSchema>;
+
+// ==================== SERVERS ====================
+
+export const serverSchema = z.object({
+  id: z.string(),
+  ownerId: z.string(),
+  name: z.string(),
+  icon: z.string().optional(),
+  description: z.string().optional(),
+  discoverable: z.boolean().default(false),
+  tags: z.array(z.string()).default([]),
+  createdAt: z.string(),
+});
+
+export type Server = z.infer<typeof serverSchema>;
+
+export const createServerSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
+  icon: z.string().optional(),
+  discoverable: z.boolean().default(false),
+  tags: z.array(z.string()).default([]),
+});
+
+export type CreateServerRequest = z.infer<typeof createServerSchema>;
+
+export const serverRoleSchema = z.object({
+  id: z.string(),
+  serverId: z.string(),
+  name: z.string(),
+  permissions: z.array(z.string()).default([]),
+  color: z.string().optional(),
+  position: z.number().default(0),
+});
+
+export type ServerRole = z.infer<typeof serverRoleSchema>;
+
+export const serverMemberSchema = z.object({
+  id: z.string(),
+  serverId: z.string(),
+  userId: z.string(),
+  roles: z.array(z.string()).default([]),
+  joinedAt: z.string(),
+  nickname: z.string().optional(),
+});
+
+export type ServerMember = z.infer<typeof serverMemberSchema>;
+
+// ==================== CHANNELS ====================
+
+export const channelTypeSchema = z.enum(['text', 'voice', 'quote', 'bot']);
+export type ChannelType = z.infer<typeof channelTypeSchema>;
+
+export const channelSchema = z.object({
+  id: z.string(),
+  serverId: z.string(),
+  name: z.string(),
+  type: channelTypeSchema,
+  topic: z.string().optional(),
+  position: z.number().default(0),
+  createdAt: z.string(),
+});
+
+export type Channel = z.infer<typeof channelSchema>;
+
+export const createChannelSchema = z.object({
+  name: z.string().min(1).max(100),
+  type: channelTypeSchema,
+  topic: z.string().max(1024).optional(),
+});
+
+export type CreateChannelRequest = z.infer<typeof createChannelSchema>;
+
+export const channelMessageSchema = z.object({
+  id: z.string(),
+  channelId: z.string(),
+  userId: z.string(),
+  username: z.string(),
+  profilePicture: z.string().optional(),
+  message: z.string(),
+  timestamp: z.string(),
+  imageUrl: z.string().optional(),
+  quotedMessageId: z.string().optional(),
+  level: z.number().optional(),
+  badge: badgeSchema.optional(),
+});
+
+export type ChannelMessage = z.infer<typeof channelMessageSchema>;
+
+export const sendChannelMessageSchema = z.object({
+  message: z.string().min(1).max(2000),
+  imageUrl: z.string().url().optional(),
+  quotedMessageId: z.string().optional(),
+});
+
+export type SendChannelMessageRequest = z.infer<typeof sendChannelMessageSchema>;
+
+// ==================== BOTS ====================
+
+export const botConfigSchema = z.object({
+  id: z.string(),
+  serverId: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  endpoint: z.string().optional(),
+  enabled: z.boolean().default(true),
+  createdAt: z.string(),
+});
+
+export type BotConfig = z.infer<typeof botConfigSchema>;
+
+// ==================== EXTENDED NAV ITEMS ====================
+
+export const extendedNavItems = [
+  ...sidebarNavItems.slice(0, 5),
+  { id: 'friends', label: 'Friends', icon: 'users' },
+  { id: 'servers', label: 'Servers', icon: 'server' },
+  { id: 'discovery', label: 'Discovery', icon: 'compass' },
+  ...sidebarNavItems.slice(5),
+] as const;
+
+export type ExtendedNavItemId = typeof extendedNavItems[number]['id'] | 'chat' | 'leaderboard';
