@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Users, BarChart, Shield, Ban, Crown, UserCheck, Target, RefreshCw } from 'lucide-react';
+import { X, Users, BarChart, Shield, Ban, Crown, UserCheck, Target, RefreshCw, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -33,6 +33,7 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
   const [newLevel, setNewLevel] = useState('');
   const [resettingQuestUserId, setResettingQuestUserId] = useState<string | null>(null);
   const [passwords, setPasswords] = useState<any[]>([]);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
   const [announcementMessage, setAnnouncementMessage] = useState('');
   const [terminalInput, setTerminalInput] = useState('');
   const [terminalHistory, setTerminalHistory] = useState<Array<{ command: string; output: string; success: boolean }>>([]);
@@ -453,7 +454,7 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
         )}
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 pr-2">
         {activeTab === 'analytics' && analytics && (
           <div className="grid grid-cols-2 gap-4">
             <StatCard label="Total Users" value={analytics.totalUsers} data-testid="stat-total-users" />
@@ -465,12 +466,26 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
 
         {activeTab === 'users' && (
           <div className="space-y-3">
-            {users.length === 0 ? (
+            <div className="relative sticky top-0 z-10 pb-2 bg-card">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
+              <Input
+                value={userSearchQuery}
+                onChange={(e) => setUserSearchQuery(e.target.value)}
+                placeholder="Search users by username..."
+                className="pl-10 bg-white/10 border-white/10 text-white"
+                data-testid="input-user-search"
+              />
+            </div>
+            {users.filter(user => 
+              user.username.toLowerCase().includes(userSearchQuery.toLowerCase())
+            ).length === 0 ? (
               <div className="text-center py-8 text-white/50">
                 No users found
               </div>
             ) : (
-              users.map((user) => (
+              users.filter(user => 
+                user.username.toLowerCase().includes(userSearchQuery.toLowerCase())
+              ).map((user) => (
                 <div
                   key={user.id}
                   className="flex items-center justify-between p-3 rounded-lg bg-white/5"
