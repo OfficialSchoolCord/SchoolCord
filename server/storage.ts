@@ -268,8 +268,8 @@ storage.users.set(adminId, {
   googleAccountLinked: false,
   createdAt: new Date().toISOString(),
   lastLogin: undefined,
-  level: 67,
-  xp: 10000,
+  level: 100,
+  xp: 7500,
   badges: ['crown'],
 });
 

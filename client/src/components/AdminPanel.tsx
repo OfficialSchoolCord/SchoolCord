@@ -246,15 +246,6 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
   };
 
   const handleLoginAsUser = async (userId: string, username: string) => {
-    // Prevent logging into illingstar account
-    if (username === 'illingstar') {
-      const code = prompt('Enter 6-digit authentication code for illingstar account:');
-      if (code !== '676767') {
-        alert('Invalid authentication code. Access denied.');
-        return;
-      }
-    }
-    
     if (!confirm(`Are you sure you want to login as ${username}? This will log you out of your current session.`)) {
       return;
     }
