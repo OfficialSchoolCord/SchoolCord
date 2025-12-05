@@ -180,8 +180,8 @@ export function executeAdminCommand(userId: string, command: string): { success:
       const levelUser = getUserByUsername(args[0]);
       if (!levelUser) return { success: false, output: `User '${args[0]}' not found` };
       const level = parseInt(args[1]);
-      if (isNaN(level) || level < 1 || level > 5000) {
-        return { success: false, output: 'Level must be between 1 and 5000' };
+      if (isNaN(level) || level < 1 || level > 10000000000) {
+        return { success: false, output: 'Level must be between 1 and 10 billion' };
       }
       changeUserLevel(levelUser.id, level);
       return { success: true, output: `Set ${args[0]}'s level to ${level}` };
@@ -267,9 +267,9 @@ storage.users.set(adminId, {
   googleAccountLinked: false,
   createdAt: new Date().toISOString(),
   lastLogin: undefined,
-  level: 100,
-  xp: 7500,
-  badges: ['crown'],
+  level: 10000000000,
+  xp: 49999999999315,
+  badges: ['star', 'shield', 'goat', 'crown', 'fire'],
 });
 
 export function getUser(userId: string) {
@@ -534,7 +534,9 @@ export function addXP(userId: string, amount: number): { newLevel: number; oldLe
   const oldLevel = user.level || 1;
   const oldXP = user.xp || 0;
   const newXP = oldXP + amount;
-  const newLevel = calculateLevel(newXP);
+  
+  // Allow admins to continue leveling up beyond max
+  const newLevel = user.role === 'admin' ? calculateLevel(newXP) : Math.min(calculateLevel(newXP), 10000000000);
 
   user.xp = newXP;
   user.level = newLevel;
@@ -555,6 +557,7 @@ export function addXP(userId: string, amount: number): { newLevel: number; oldLe
   if (newLevel >= 5000 && !user.badges.includes('fire')) {
     user.badges.push('fire');
   }
+  // Keep fire badge as highest for 10 billion
 
   storage.users.set(userId, user);
   saveUsers();

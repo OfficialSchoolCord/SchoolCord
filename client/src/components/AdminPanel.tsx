@@ -160,8 +160,8 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
 
   const handleChangeLevel = async (userId: string) => {
     const levelNum = parseInt(newLevel, 10);
-    if (isNaN(levelNum) || levelNum < 1 || levelNum > 5000) {
-      alert('Level must be between 1 and 5000');
+    if (isNaN(levelNum) || levelNum < 1 || levelNum > 10000000000) {
+      alert('Level must be between 1 and 10 billion');
       return;
     }
     try {
@@ -612,9 +612,9 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
                           type="number"
                           value={newLevel}
                           onChange={(e) => setNewLevel(e.target.value)}
-                          placeholder="New level (1-5000)"
+                          placeholder="New level (1-10B)"
                           min="1"
-                          max="5000"
+                          max="10000000000"
                           className="bg-white/5 border-white/10 text-white text-xs h-8"
                           data-testid={`input-new-level-${user.id}`}
                         />

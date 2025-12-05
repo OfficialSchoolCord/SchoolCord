@@ -492,8 +492,8 @@ export async function registerRoutes(
     try {
       const { userId, newLevel } = req.body;
       
-      if (typeof newLevel !== 'number' || newLevel < 1 || newLevel > 5000) {
-        return res.status(400).json({ error: 'Level must be between 1 and 5000' });
+      if (typeof newLevel !== 'number' || newLevel < 1 || newLevel > 10000000000) {
+        return res.status(400).json({ error: 'Level must be between 1 and 10 billion' });
       }
       
       const user = storage.changeUserLevel(userId, newLevel);
