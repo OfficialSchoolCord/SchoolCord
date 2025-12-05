@@ -1572,3 +1572,171 @@ export function removeBot(botId: string, userId: string): boolean {
   }
   return false;
 }
+
+// ==================== SERVER BOOST FUNCTIONS ====================
+
+export function boostServer(serverId: string, userId: string, amount: number): any {
+  const server = storage.servers.get(serverId);
+  if (!server) return { error: 'Server not found' };
+  
+  const boost = {
+    id: `boost-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    serverId,
+    userId,
+    amount,
+    timestamp: new Date().toISOString(),
+  };
+  
+  server.boostBalance = (server.boostBalance || 0) + amount;
+  server.boostLevel = Math.floor(server.boostBalance / 100);
+  
+  storage.servers.set(serverId, server);
+  saveServers();
+  return boost;
+}
+
+export function getServerBoosts(serverId: string): any[] {
+  return [];
+}
+
+export function useServerBoost(serverId: string, userId: string, feature: string, amount: number): any {
+  const server = storage.servers.get(serverId);
+  if (!server) return { error: 'Server not found' };
+  if (!isServerAdmin(serverId, userId)) return { error: 'Not authorized' };
+  
+  if ((server.boostBalance || 0) < amount) {
+    return { error: 'Insufficient boost balance' };
+  }
+  
+  server.boostBalance = (server.boostBalance || 0) - amount;
+  
+  if (!server.features) {
+    server.features = {
+      animatedUsernames: false,
+      customEmojis: false,
+      promotionSlots: 0,
+    };
+  }
+  
+  switch (feature) {
+    case 'animatedUsernames':
+      server.features.animatedUsernames = true;
+      break;
+    case 'customEmojis':
+      server.features.customEmojis = true;
+      break;
+    case 'promotion':
+      server.features.promotionSlots = (server.features.promotionSlots || 0) + 1;
+      break;
+    case 'banner':
+      break;
+  }
+  
+  storage.servers.set(serverId, server);
+  saveServers();
+  return server;
+}
+
+// ==================== SERVER ROLE FUNCTIONS ====================
+
+export function getServerRoles(serverId: string): any[] {
+  return storage.serverRoles.get(serverId) || [];
+}
+
+export function createServerRole(serverId: string, userId: string, name: string, permissions: string[] = [], color?: string): any {
+  if (!isServerAdmin(serverId, userId)) {
+    return { error: 'Not authorized' };
+  }
+  
+  const roles = storage.serverRoles.get(serverId) || [];
+  const id = `role-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  
+  const role = {
+    id,
+    serverId,
+    name,
+    permissions,
+    color,
+    position: roles.length,
+    createdBy: userId,
+    createdAt: new Date().toISOString(),
+  };
+  
+  roles.push(role);
+  storage.serverRoles.set(serverId, roles);
+  saveServers();
+  return role;
+}
+
+export function updateServerRole(roleId: string, userId: string, updates: any): any {
+  for (const [serverId, roles] of storage.serverRoles.entries()) {
+    const roleIndex = roles.findIndex(r => r.id === roleId);
+    if (roleIndex !== -1) {
+      if (!isServerAdmin(serverId, userId)) {
+        return { error: 'Not authorized' };
+      }
+      
+      const updated = { ...roles[roleIndex], ...updates, id: roleId, serverId };
+      roles[roleIndex] = updated;
+      storage.serverRoles.set(serverId, roles);
+      saveServers();
+      return updated;
+    }
+  }
+  return { error: 'Role not found' };
+}
+
+export function deleteServerRole(roleId: string, userId: string): boolean {
+  for (const [serverId, roles] of storage.serverRoles.entries()) {
+    const roleIndex = roles.findIndex(r => r.id === roleId);
+    if (roleIndex !== -1) {
+      if (!isServerAdmin(serverId, userId)) return false;
+      
+      roles.splice(roleIndex, 1);
+      storage.serverRoles.set(serverId, roles);
+      saveServers();
+      return true;
+    }
+  }
+  return false;
+}
+
+export function assignRoleToMember(memberId: string, userId: string, roleId: string): any {
+  for (const [serverId, members] of storage.serverMembers.entries()) {
+    const memberIndex = members.findIndex(m => m.id === memberId);
+    if (memberIndex !== -1) {
+      if (!isServerAdmin(serverId, userId)) {
+        return { error: 'Not authorized' };
+      }
+      
+      const member = members[memberIndex];
+      if (!member.roles.includes(roleId)) {
+        member.roles.push(roleId);
+      }
+      
+      storage.serverMembers.set(serverId, members);
+      saveServers();
+      return member;
+    }
+  }
+  return { error: 'Member not found' };
+}
+
+export function removeRoleFromMember(memberId: string, userId: string, roleId: string): any {
+  for (const [serverId, members] of storage.serverMembers.entries()) {
+    const memberIndex = members.findIndex(m => m.id === memberId);
+    if (memberIndex !== -1) {
+      if (!isServerAdmin(serverId, userId)) {
+        return { error: 'Not authorized' };
+      }
+      
+      const member = members[memberIndex];
+      member.roles = member.roles.filter(r => r !== roleId);
+      
+      storage.serverMembers.set(serverId, members);
+      saveServers();
+      return member;
+    }
+  }
+  return { error: 'Member not found' };
+}

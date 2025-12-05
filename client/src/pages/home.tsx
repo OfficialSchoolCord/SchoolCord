@@ -21,6 +21,14 @@ import { GamesPanel } from '@/components/GamesPanel';
 import { useToast } from '@/hooks/use-toast';
 import { useBrowserSettings } from '@/hooks/use-browser-settings';
 import type { NavItemId, HistoryItem, FetchResponse, UserRole } from '@shared/schema';
+import { ServerNavSidebar } from '@/components/ServerNavSidebar';
+import { SearchBox } from '@/components/SearchBox';
+import { ServersPanel } from '@/components/ServersPanel';
+import { DiscoveryPanel } from '@/components/DiscoveryPanel';
+import { FriendsPanel } from '@/components/FriendsPanel';
+import { DMChatPanel } from '@/components/DMChatPanel';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { useQuery } from '@tanstack/react-query';
 
 export default function Home() {
   const [activePanel, setActivePanel] = useState<NavItemId | null>('home');
@@ -39,6 +47,8 @@ export default function Home() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [levelUpData, setLevelUpData] = useState<{ newLevel: number } | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
+  const [selectedDMThreadId, setSelectedDMThreadId] = useState<string | null>(null);
   const { toast } = useToast();
   const { 
     privacyMode, 
@@ -284,6 +294,17 @@ export default function Home() {
     setActivePanel(showBrowser ? 'search' : 'home');
   };
 
+  const handleServerSelect = (serverId: string | null) => {
+    setSelectedServerId(serverId);
+    if (serverId) {
+      setActivePanel(null);
+    }
+  };
+
+  const handleCreateServerFromNav = () => {
+    setActiveNav('servers');
+  };
+
   const renderPanel = () => {
     switch (activePanel) {
       case 'settings':
@@ -410,6 +431,12 @@ export default function Home() {
         defaultOpen={false}
         style={sidebarStyle}
       >
+        <ServerNavSidebar 
+          onServerSelect={handleServerSelect}
+          onCreateServer={handleCreateServerFromNav}
+          selectedServerId={selectedServerId}
+          sessionId={sessionId}
+        />
         <AppSidebar 
           activeNav={activePanel} 
           onNavChange={handlePanelChange} 
@@ -417,30 +444,62 @@ export default function Home() {
         />
 
         <SidebarInset className="bg-transparent">
-          {!showBrowser && activePanel === 'home' && (
+          {selectedServerId && (
+            <ServersPanel 
+              sessionId={sessionId} 
+              user={user}
+              onClose={() => setSelectedServerId(null)}
+              preselectedServerId={selectedServerId}
+            />
+          )}
+          {!selectedServerId && activePanel === 'home' && (
             <HomePage 
               onSearch={handleSearch} 
               isLoading={fetchMutation.isPending} 
+              sessionId={sessionId}
             />
           )}
-
-          {showBrowser && (
-            <BrowserView
-              url={currentUrl}
-              content={pageContent}
-              title={pageTitle}
-              isLoading={fetchMutation.isPending}
-              error={pageError}
-              isSearch={isSearchResult}
-              searchUrl={searchUrl}
-              history={history}
-              historyIndex={historyIndex}
-              onNavigate={handleSearch}
-              onBack={handleBack}
-              onForward={handleForward}
-              onClose={handleCloseBrowser}
+          {!selectedServerId && activePanel === 'search' && <SearchBox onSearch={handleSearch} />}
+          {!selectedServerId && activePanel === 'apps' && <AppsPanel sessionId={sessionId} />}
+          {!selectedServerId && activePanel === 'games' && <GamesPanel />}
+          {!selectedServerId && activePanel === 'settings' && <SettingsPanel sessionId={sessionId} />}
+          {!selectedServerId && activePanel === 'history' && <HistoryPanel sessionId={sessionId} />}
+          {!selectedServerId && activePanel === 'profile' && <ProfilePanel sessionId={sessionId} />}
+          {!selectedServerId && activePanel === 'ai' && <AIChatPanel sessionId={sessionId} />}
+          {!selectedServerId && activePanel === 'admin' && userRole === 'admin' && <AdminPanel sessionId={sessionId} />}
+          {!selectedServerId && activePanel === 'chat' && selectedDMThreadId && (
+            <DMChatPanel 
+              sessionId={sessionId} 
+              threadId={selectedDMThreadId}
+              onClose={() => setSelectedDMThreadId(null)}
             />
           )}
+          {!selectedServerId && activePanel === 'chat' && !selectedDMThreadId && <ChatPanel sessionId={sessionId} userRole={userRole} />}
+          {!selectedServerId && activePanel === 'leaderboard' && <LeaderboardPanel onClose={() => setActivePanel('home')} />}
+          {!selectedServerId && activePanel === 'friends' && (
+            <FriendsPanel 
+              sessionId={sessionId} 
+              onClose={() => setActivePanel('home')}
+              onOpenDM={handleDMOpen}
+            />
+          )}
+          {!selectedServerId && activePanel === 'servers' && (
+            <ServersPanel 
+              sessionId={sessionId} 
+              user={user}
+              onClose={() => setActivePanel('home')}
+            />
+          )}
+          {!selectedServerId && activePanel === 'discovery' && (
+            <DiscoveryPanel 
+              sessionId={sessionId}
+              onClose={() => setActivePanel('home')}
+              onNavigateToServer={(serverId) => {
+                setSelectedServerId(serverId);
+              }}
+            />
+          )}
+          {!selectedServerId && searchUrl && !activePanel && <BrowserView url={searchUrl} sessionId={sessionId} />}
 
           {renderPanel()}
 

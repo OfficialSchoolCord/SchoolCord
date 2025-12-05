@@ -1291,6 +1291,91 @@ export async function registerRoutes(
     return res.json({ success: true });
   });
 
+  // ==================== SERVER BOOST API ====================
+
+  app.post("/api/servers/:id/boost", requireAuth, (req: any, res) => {
+    const { amount } = req.body;
+    if (!amount || amount < 1) {
+      return res.status(400).json({ error: 'Invalid boost amount' });
+    }
+    
+    const result = storage.boostServer(req.params.id, req.userId, amount);
+    if ('error' in result) {
+      return res.status(400).json(result);
+    }
+    return res.json({ boost: result });
+  });
+
+  app.get("/api/servers/:id/boosts", requireAuth, (req: any, res) => {
+    const boosts = storage.getServerBoosts(req.params.id);
+    return res.json({ boosts });
+  });
+
+  app.post("/api/servers/:id/use-boost", requireAuth, (req: any, res) => {
+    const { feature, amount } = req.body;
+    const result = storage.useServerBoost(req.params.id, req.userId, feature, amount);
+    if ('error' in result) {
+      return res.status(400).json(result);
+    }
+    return res.json({ server: result });
+  });
+
+  // ==================== SERVER ROLES API ====================
+
+  app.get("/api/servers/:id/roles", requireAuth, (req: any, res) => {
+    if (!storage.isServerMember(req.params.id, req.userId)) {
+      return res.status(403).json({ error: 'Not a member' });
+    }
+    const roles = storage.getServerRoles(req.params.id);
+    return res.json({ roles });
+  });
+
+  app.post("/api/servers/:id/roles", requireAuth, (req: any, res) => {
+    const { name, permissions, color } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Role name required' });
+    }
+    
+    const result = storage.createServerRole(req.params.id, req.userId, name, permissions, color);
+    if ('error' in result) {
+      return res.status(403).json(result);
+    }
+    return res.json({ role: result });
+  });
+
+  app.patch("/api/roles/:id", requireAuth, (req: any, res) => {
+    const result = storage.updateServerRole(req.params.id, req.userId, req.body);
+    if ('error' in result) {
+      return res.status(400).json(result);
+    }
+    return res.json({ role: result });
+  });
+
+  app.delete("/api/roles/:id", requireAuth, (req: any, res) => {
+    const success = storage.deleteServerRole(req.params.id, req.userId);
+    if (!success) {
+      return res.status(403).json({ error: 'Not authorized or role not found' });
+    }
+    return res.json({ success: true });
+  });
+
+  app.post("/api/members/:id/roles", requireAuth, (req: any, res) => {
+    const { roleId } = req.body;
+    const result = storage.assignRoleToMember(req.params.id, req.userId, roleId);
+    if ('error' in result) {
+      return res.status(403).json(result);
+    }
+    return res.json({ member: result });
+  });
+
+  app.delete("/api/members/:id/roles/:roleId", requireAuth, (req: any, res) => {
+    const result = storage.removeRoleFromMember(req.params.id, req.userId, req.params.roleId);
+    if ('error' in result) {
+      return res.status(403).json(result);
+    }
+    return res.json({ member: result });
+  });
+
   // ==================== VOICE API (STUB) ====================
 
   app.post("/api/voice/:channelId/connect", requireAuth, (req: any, res) => {

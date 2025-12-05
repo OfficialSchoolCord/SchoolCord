@@ -19,10 +19,11 @@ interface ServersPanelProps {
   onClose: () => void;
   sessionId: string | null;
   user: any;
+  preselectedServerId?: string;
 }
 
-export function ServersPanel({ onClose, sessionId, user }: ServersPanelProps) {
-  const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
+export function ServersPanel({ onClose, sessionId, user, preselectedServerId }: ServersPanelProps) {
+  const [selectedServerId, setSelectedServerId] = useState<string | null>(preselectedServerId || null);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [showCreateServer, setShowCreateServer] = useState(false);

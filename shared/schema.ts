@@ -314,6 +314,24 @@ export type DMMessage = z.infer<typeof dmMessageSchema>;
 
 // ==================== SERVERS ====================
 
+export const serverThemeSchema = z.enum([
+  'dark', 'light', 'cyberpunk', 'neon', 'minimal', 'gradient', 'sunset', 
+  'ocean', 'forest', 'lavender', 'matrix', 'candy', 'midnight', 'retro',
+  'synthwave', 'space', 'fire', 'ice', 'gold', 'silver', 'rainbow'
+]);
+
+export type ServerTheme = z.infer<typeof serverThemeSchema>;
+
+export const serverBoostSchema = z.object({
+  id: z.string(),
+  serverId: z.string(),
+  userId: z.string(),
+  amount: z.number(),
+  timestamp: z.string(),
+});
+
+export type ServerBoost = z.infer<typeof serverBoostSchema>;
+
 export const serverSchema = z.object({
   id: z.string(),
   ownerId: z.string(),
@@ -323,6 +341,15 @@ export const serverSchema = z.object({
   discoverable: z.boolean().default(false),
   tags: z.array(z.string()).default([]),
   createdAt: z.string(),
+  theme: serverThemeSchema.default('dark'),
+  boostBalance: z.number().default(0),
+  boostLevel: z.number().default(0),
+  features: z.object({
+    animatedUsernames: z.boolean().default(false),
+    customEmojis: z.boolean().default(false),
+    bannerImage: z.string().optional(),
+    promotionSlots: z.number().default(0),
+  }).default({}),
 });
 
 export type Server = z.infer<typeof serverSchema>;
@@ -344,9 +371,19 @@ export const serverRoleSchema = z.object({
   permissions: z.array(z.string()).default([]),
   color: z.string().optional(),
   position: z.number().default(0),
+  createdBy: z.string(),
+  createdAt: z.string(),
 });
 
 export type ServerRole = z.infer<typeof serverRoleSchema>;
+
+export const createRoleSchema = z.object({
+  name: z.string().min(1).max(50),
+  permissions: z.array(z.string()).default([]),
+  color: z.string().optional(),
+});
+
+export type CreateRoleRequest = z.infer<typeof createRoleSchema>;
 
 export const serverMemberSchema = z.object({
   id: z.string(),

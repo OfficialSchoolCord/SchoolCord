@@ -84,11 +84,10 @@ export function AppSidebar({ activeNav, onNavChange, userRole = 'user' }: AppSid
                   <SidebarMenuItem key={item.id}>
                     <Tooltip delayDuration={200}>
                       <TooltipTrigger asChild>
-                        <SidebarMenuButton
+                        <button
                           onClick={() => onNavChange(item.id)}
-                          isActive={isActive}
                           className={`
-                            relative w-12 h-12 mx-auto rounded-lg transition-all duration-200 justify-center
+                            relative w-12 h-12 mx-auto rounded-lg transition-all duration-200 flex items-center justify-center
                             ${isActive 
                               ? 'bg-primary/20 text-primary' 
                               : 'text-white/70 hover:text-white hover:bg-white/10'
@@ -108,7 +107,7 @@ export function AppSidebar({ activeNav, onNavChange, userRole = 'user' }: AppSid
                           <Icon 
                             className={`w-5 h-5 transition-all duration-200 ${isActive ? 'icon-glow' : ''}`}
                           />
-                        </SidebarMenuButton>
+                        </button>
                       </TooltipTrigger>
                       <TooltipContent 
                         side="right" 
