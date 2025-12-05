@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { Starfield } from '@/components/Starfield';
 import { AppSidebar } from '@/components/AppSidebar';
 import { HomePage } from '@/components/HomePage';
