@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Users, UserPlus, UserCheck, UserX, MessageCircle, Search, Clock, Ban } from 'lucide-react';
+import { X, Users, UserPlus, UserCheck, UserX, MessageCircle, Search, Clock, Ban, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -141,18 +141,18 @@ export function FriendsPanel({ onClose, sessionId, onStartDM }: FriendsPanelProp
       >
         <div className="flex items-center justify-between p-4 border-b border-white/10">
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="text-white/70 hover:text-white hover:bg-white/10"
+              data-testid="button-back-friends"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
             <Users className="w-5 h-5 text-primary" />
             <h2 className="text-xl font-semibold text-white">Friends</h2>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="text-white/70 hover:text-white hover:bg-white/10"
-            data-testid="button-close-friends"
-          >
-            <X className="w-5 h-5" />
-          </Button>
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full">

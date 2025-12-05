@@ -1,4 +1,4 @@
-import { X, Clock, ExternalLink, Trash2 } from 'lucide-react';
+import { X, Clock, ExternalLink, Trash2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -30,6 +30,15 @@ export function HistoryPanel({ history, onNavigate, onClear, onClose }: HistoryP
       >
         <div className="flex items-center justify-between p-4 border-b border-white/10">
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="text-white/70 hover:text-white hover:bg-white/10"
+              data-testid="button-back-history"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
             <Clock className="w-5 h-5 text-primary" />
             <h2 className="text-xl font-semibold text-white">Browsing History</h2>
           </div>
@@ -46,15 +55,6 @@ export function HistoryPanel({ history, onNavigate, onClear, onClose }: HistoryP
                 Clear All
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="text-white/70 hover:text-white hover:bg-white/10"
-              data-testid="button-close-history"
-            >
-              <X className="w-5 h-5" />
-            </Button>
           </div>
         </div>
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Compass, Search, Users, Tag, Globe, Plus } from 'lucide-react';
+import { X, Compass, Search, Users, Tag, Globe, Plus, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -33,7 +33,8 @@ export function DiscoveryPanel({ onClose, sessionId, onNavigateToServer }: Disco
 
   const joinServerMutation = useMutation({
     mutationFn: async (serverId: string) => {
-      return apiRequest(`/api/servers/${serverId}/join`, { method: 'POST' });
+      const res = await apiRequest('POST', `/api/servers/${serverId}/join`);
+      return res.json();
     },
     onSuccess: (_, serverId) => {
       queryClient.invalidateQueries({ queryKey: ['/api/servers'] });
@@ -75,18 +76,18 @@ export function DiscoveryPanel({ onClose, sessionId, onNavigateToServer }: Disco
       >
         <div className="flex items-center justify-between p-4 border-b border-white/10">
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="text-white/70 hover:text-white hover:bg-white/10"
+              data-testid="button-back-discovery"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
             <Compass className="w-5 h-5 text-primary" />
             <h2 className="text-xl font-semibold text-white">Discover Servers</h2>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="text-white/70 hover:text-white hover:bg-white/10"
-            data-testid="button-close-discovery"
-          >
-            <X className="w-5 h-5" />
-          </Button>
         </div>
 
         <div className="p-4 border-b border-white/10">

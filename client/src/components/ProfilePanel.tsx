@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, User, Star, Clock, Globe, Sparkles, Target, CheckCircle, Timer } from 'lucide-react';
+import { X, User, Star, Clock, Globe, Sparkles, Target, CheckCircle, Timer, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -162,16 +162,18 @@ export function ProfilePanel({ visitCount, onClose, user, onSignIn, onSignOut, o
         }}
       >
         <div className="flex items-center justify-between p-4 border-b border-white/10">
-          <h2 className="text-xl font-semibold text-white">Profile</h2>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="text-white/70 hover:text-white hover:bg-white/10"
-            data-testid="button-close-profile"
-          >
-            <X className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="text-white/70 hover:text-white hover:bg-white/10"
+              data-testid="button-back-profile"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <h2 className="text-xl font-semibold text-white">Profile</h2>
+          </div>
         </div>
 
         {user && (

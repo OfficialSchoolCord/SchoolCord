@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { X, Gamepad2, Zap, Target, Puzzle } from 'lucide-react';
+import { X, Gamepad2, Zap, Target, Puzzle, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -311,19 +311,19 @@ export function GamesPanel({ onClose }: GamesPanelProps) {
         }}
       >
         <div className="flex items-center justify-between p-4 border-b border-white/10">
-          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-            <Gamepad2 className="w-5 h-5" />
-            Games Arcade
-          </h2>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="text-white/70 hover:text-white hover:bg-white/10"
-            data-testid="button-close-games"
-          >
-            <X className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="text-white/70 hover:text-white hover:bg-white/10"
+              data-testid="button-back-games"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <Gamepad2 className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-semibold text-white">Games Arcade</h2>
+          </div>
         </div>
 
         {!selectedGame ? (

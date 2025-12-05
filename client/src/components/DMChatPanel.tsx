@@ -36,10 +36,8 @@ export function DMChatPanel({ onClose, sessionId, userId, targetUserId }: DMChat
 
   const startDMMutation = useMutation({
     mutationFn: async (targetId: string) => {
-      return apiRequest('/api/dms/start', {
-        method: 'POST',
-        body: JSON.stringify({ targetUserId: targetId }),
-      });
+      const res = await apiRequest('POST', '/api/dms/start', { targetUserId: targetId });
+      return res.json();
     },
     onSuccess: (data: { thread: DMThread }) => {
       queryClient.invalidateQueries({ queryKey: ['/api/dms/threads'] });
@@ -52,10 +50,8 @@ export function DMChatPanel({ onClose, sessionId, userId, targetUserId }: DMChat
 
   const sendMessageMutation = useMutation({
     mutationFn: async (message: string) => {
-      return apiRequest(`/api/dms/threads/${selectedThreadId}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({ message }),
-      });
+      const res = await apiRequest('POST', `/api/dms/threads/${selectedThreadId}/messages`, { message });
+      return res.json();
     },
     onSuccess: () => {
       setNewMessage('');
@@ -105,18 +101,18 @@ export function DMChatPanel({ onClose, sessionId, userId, targetUserId }: DMChat
         >
           <div className="p-4 border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                className="text-white/70 hover:text-white"
+                data-testid="button-back-dm"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
               <MessageCircle className="w-5 h-5 text-primary" />
               <h2 className="text-lg font-semibold text-white">Messages</h2>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="text-white/70 hover:text-white"
-              data-testid="button-close-dm"
-            >
-              <X className="w-5 h-5" />
-            </Button>
           </div>
           
           <ScrollArea className="flex-1">

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Users, BarChart, Shield, Ban, Crown, UserCheck, Target, RefreshCw, Search } from 'lucide-react';
+import { X, Users, BarChart, Shield, Ban, Crown, UserCheck, Target, RefreshCw, Search, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -365,6 +365,15 @@ export function AdminPanel({ onClose, sessionId, currentUserRole }: AdminPanelPr
     <div className="flex flex-col h-full p-4 gap-4">
       <div className="flex items-center justify-between pb-3 border-b border-white/10">
         <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="text-white/70 hover:text-white hover:bg-white/10"
+            data-testid="button-back-admin"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
             <Shield className="w-5 h-5 text-primary" />
           </div>
