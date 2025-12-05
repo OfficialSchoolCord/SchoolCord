@@ -263,16 +263,19 @@ export default function Home() {
 
   const handleNavChange = useCallback((id: NavItemId) => {
     if (id === 'home') {
-      handleCloseBrowser();
+      setShowBrowser(false);
       setSelectedServerId(null);
       setSelectedDMThreadId(null);
       setActivePanel('home');
+      setPageContent(null);
+      setPageError(null);
+      setCurrentUrl('');
       return;
     } else if (id === 'search' && showBrowser) {
       return;
     }
     setActivePanel(id);
-  }, [handleCloseBrowser, showBrowser]);
+  }, [showBrowser]);
 
   const handleClearHistory = useCallback(() => {
     clearHistory();
