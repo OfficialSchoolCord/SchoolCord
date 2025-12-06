@@ -1,9 +1,24 @@
-import { useCallback } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { BrowserControls } from './BrowserControls';
 import { TabBar } from './TabBar';
 import { Loader2, AlertCircle, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { BrowserTab } from '@shared/schema';
+
+// Encode URL for proxy
+async function encodeProxyUrl(url: string): Promise<string> {
+  try {
+    const response = await fetch('/api/~e', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ u: url }),
+    });
+    const data = await response.json();
+    return data.r || '';
+  } catch {
+    return '';
+  }
+}
 
 interface BrowserViewProps {
   url: string;
@@ -54,6 +69,14 @@ export function BrowserView({
       onSearch(url);
     }
   }, [url, onSearch]);
+
+  const [proxyUrl, setProxyUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (url && !isSearch) {
+      encodeProxyUrl(url).then(setProxyUrl);
+    }
+  }, [url, isSearch]);
 
   const openInNewTab = () => {
     if (isSearch && searchUrl) {
@@ -180,30 +203,45 @@ export function BrowserView({
               </div>
             )}
             
-            <div 
-              className="flex-1 overflow-auto p-6"
-              data-testid="browser-content"
-            >
+            {content && content.trim().length > 0 ? (
               <div 
-                className="prose prose-invert prose-sm max-w-4xl mx-auto"
-                style={{
-                  '--tw-prose-body': 'rgba(255, 255, 255, 0.85)',
-                  '--tw-prose-headings': '#fff',
-                  '--tw-prose-links': 'hsl(348, 83%, 60%)',
-                  '--tw-prose-bold': '#fff',
-                } as React.CSSProperties}
+                className="flex-1 overflow-auto p-6"
+                data-testid="browser-content"
               >
-                {title && (
-                  <h1 className="text-2xl font-bold text-white mb-6" data-testid="text-page-title">
-                    {title}
-                  </h1>
-                )}
                 <div 
-                  className="whitespace-pre-wrap leading-relaxed text-white/80"
-                  dangerouslySetInnerHTML={{ __html: content }}
+                  className="prose prose-invert prose-sm max-w-4xl mx-auto"
+                  style={{
+                    '--tw-prose-body': 'rgba(255, 255, 255, 0.85)',
+                    '--tw-prose-headings': '#fff',
+                    '--tw-prose-links': 'hsl(348, 83%, 60%)',
+                    '--tw-prose-bold': '#fff',
+                  } as React.CSSProperties}
+                >
+                  {title && (
+                    <h1 className="text-2xl font-bold text-white mb-6" data-testid="text-page-title">
+                      {title}
+                    </h1>
+                  )}
+                  <div 
+                    className="whitespace-pre-wrap leading-relaxed text-white/80"
+                    dangerouslySetInnerHTML={{ __html: content }}
+                  />
+                </div>
+              </div>
+            ) : proxyUrl ? (
+              <div className="flex-1 relative">
+                <iframe
+                  src={`/~s/${proxyUrl}`}
+                  className="w-full h-full border-0"
+                  sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+                  title={title || 'Web page'}
                 />
               </div>
-            </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              </div>
+            )}
           </div>
         )}
 

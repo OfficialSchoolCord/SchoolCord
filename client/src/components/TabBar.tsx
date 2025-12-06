@@ -65,7 +65,7 @@ export function TabBar({
           </button>
         </div>
       ))}
-      
+
       <Button
         variant="ghost"
         size="icon"
