@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const LOADING_TIPS = [
   "SchoolCord connects you to the web through our secure cloud service",
@@ -105,6 +106,25 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
           <p className="text-white/40 text-xs text-center mt-2">
             {Math.floor(progress)}%
           </p>
+        </div>
+
+        {/* Skip Loading Section */}
+        <div className="flex items-center gap-3 mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onComplete}
+            className="border-white/20 text-white/70 hover:text-white hover:bg-white/10"
+            data-testid="button-skip-loading"
+          >
+            Skip Loading
+          </Button>
+          <div className="flex items-center gap-2 text-amber-400/80">
+            <AlertTriangle className="w-4 h-4" />
+            <span className="text-xs">
+              Skipping Loading Can Cause Errors With Searching / Proxy ( NOT RECOMMENDED )
+            </span>
+          </div>
         </div>
       </div>
 

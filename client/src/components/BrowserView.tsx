@@ -1,7 +1,7 @@
 import { useCallback, useState, useEffect } from 'react';
 import { BrowserControls } from './BrowserControls';
 import { TabBar } from './TabBar';
-import { Loader2, AlertCircle, ExternalLink } from 'lucide-react';
+import { Loader2, AlertCircle, ExternalLink, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { BrowserTab } from '@shared/schema';
 
@@ -181,7 +181,7 @@ export function BrowserView({
 
         {showContent && (
           <div className="h-full flex flex-col">
-            {isSearch && searchUrl && (
+            {(isSearch || content || url) && (
               <div 
                 className="flex items-center justify-between gap-2 px-4 py-2"
                 style={{
@@ -189,19 +189,35 @@ export function BrowserView({
                   borderBottom: '1px solid rgba(139, 92, 246, 0.2)',
                 }}
               >
-                <span className="text-sm text-white/70">
-                  Search results from DuckDuckGo
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={openInNewTab}
-                  className="gap-2 text-white/70 hover:text-white"
-                  data-testid="button-open-external"
-                >
-                  <span>Open in new tab</span>
-                  <ExternalLink className="w-3 h-3" />
-                </Button>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onClose}
+                    className="gap-2 text-white/70 hover:text-white"
+                    data-testid="button-back-home"
+                  >
+                    <Home className="w-4 h-4" />
+                    <span>Back Home</span>
+                  </Button>
+                  {isSearch && searchUrl && (
+                    <span className="text-sm text-white/70">
+                      Search results from DuckDuckGo
+                    </span>
+                  )}
+                </div>
+                {isSearch && searchUrl && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={openInNewTab}
+                    className="gap-2 text-white/70 hover:text-white"
+                    data-testid="button-open-external"
+                  >
+                    <span>Open in new tab</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </Button>
+                )}
               </div>
             )}
             
