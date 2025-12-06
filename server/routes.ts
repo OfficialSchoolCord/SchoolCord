@@ -86,6 +86,29 @@ function requireModerator(req: any, res: any, next: any) {
 const MAX_RESPONSE_SIZE = 5 * 1024 * 1024;
 const REQUEST_TIMEOUT = 10000;
 
+// Hidden proxy URL encoding/decoding (XOR obfuscation)
+const _0x5f = 0x5A; // Obfuscated key
+const _0x3e = (s: string): string => {
+  const b = Buffer.from(s, 'utf-8');
+  const r = Buffer.alloc(b.length);
+  for (let i = 0; i < b.length; i++) {
+    r[i] = b[i] ^ _0x5f;
+  }
+  return r.toString('base64url');
+};
+const _0x4d = (e: string): string => {
+  try {
+    const b = Buffer.from(e, 'base64url');
+    const r = Buffer.alloc(b.length);
+    for (let i = 0; i < b.length; i++) {
+      r[i] = b[i] ^ _0x5f;
+    }
+    return r.toString('utf-8');
+  } catch {
+    return '';
+  }
+};
+
 function isBlockedHost(hostname: string): boolean {
   const lowerHost = hostname.toLowerCase();
   
@@ -285,6 +308,233 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
+  // Hidden proxy - encode URL endpoint
+  app.post('/api/~e', async (req, res) => {
+    try {
+      const { u } = req.body;
+      if (!u || typeof u !== 'string') {
+        return res.status(400).json({ e: 1 });
+      }
+      const encoded = _0x3e(u);
+      return res.json({ r: encoded });
+    } catch {
+      return res.status(500).json({ e: 1 });
+    }
+  });
+
+  // Helper to resolve URL relative to base
+  const resolveUrl = (href: string, baseUrl: URL): string | null => {
+    if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('data:') || href.startsWith('blob:')) {
+      return null;
+    }
+    try {
+      if (href.startsWith('http://') || href.startsWith('https://')) {
+        return href;
+      } else if (href.startsWith('//')) {
+        return baseUrl.protocol + href;
+      } else if (href.startsWith('/')) {
+        return baseUrl.origin + href;
+      } else {
+        return new URL(href, baseUrl.href).href;
+      }
+    } catch {
+      return null;
+    }
+  };
+
+  // Comprehensive HTML rewriter for proxy
+  const rewriteHtml = (html: string, baseUrl: URL): string => {
+    const $ = cheerio.load(html, { decodeEntities: false });
+    
+    // Remove existing base tags to prevent conflicts
+    $('base').remove();
+    
+    // Rewrite all navigational URLs (links, forms)
+    $('a[href]').each((_, el) => {
+      const href = $(el).attr('href');
+      const resolved = resolveUrl(href!, baseUrl);
+      if (resolved) {
+        $(el).attr('href', '/~s/' + _0x3e(resolved));
+      }
+    });
+
+    $('form[action]').each((_, el) => {
+      const action = $(el).attr('action') || baseUrl.href;
+      const resolved = resolveUrl(action, baseUrl);
+      if (resolved) {
+        $(el).attr('action', '/~s/' + _0x3e(resolved));
+      }
+    });
+
+    // Rewrite asset URLs (images, scripts, stylesheets, iframes, etc.)
+    const assetAttrs: [string, string][] = [
+      ['img', 'src'],
+      ['img', 'srcset'],
+      ['script', 'src'],
+      ['link[rel="stylesheet"]', 'href'],
+      ['link[rel="icon"]', 'href'],
+      ['link[rel="preload"]', 'href'],
+      ['source', 'src'],
+      ['source', 'srcset'],
+      ['video', 'src'],
+      ['video', 'poster'],
+      ['audio', 'src'],
+      ['iframe', 'src'],
+      ['embed', 'src'],
+      ['object', 'data'],
+    ];
+
+    for (const [selector, attr] of assetAttrs) {
+      $(`${selector}[${attr}]`).each((_, el) => {
+        const value = $(el).attr(attr);
+        if (value) {
+          if (attr === 'srcset') {
+            const parts = value.split(',').map(part => {
+              const [url, descriptor] = part.trim().split(/\s+/);
+              const resolved = resolveUrl(url, baseUrl);
+              if (resolved) {
+                return '/~s/' + _0x3e(resolved) + (descriptor ? ' ' + descriptor : '');
+              }
+              return part;
+            });
+            $(el).attr(attr, parts.join(', '));
+          } else {
+            const resolved = resolveUrl(value, baseUrl);
+            if (resolved) {
+              $(el).attr(attr, '/~s/' + _0x3e(resolved));
+            }
+          }
+        }
+      });
+    }
+
+    // Rewrite CSS url() references in style tags
+    $('style').each((_, el) => {
+      let css = $(el).html() || '';
+      css = css.replace(/url\(['"]?([^'")]+)['"]?\)/g, (match, url) => {
+        const resolved = resolveUrl(url, baseUrl);
+        if (resolved) {
+          return `url('/~s/${_0x3e(resolved)}')`;
+        }
+        return match;
+      });
+      $(el).html(css);
+    });
+
+    // Rewrite inline style url() references
+    $('[style]').each((_, el) => {
+      let style = $(el).attr('style') || '';
+      style = style.replace(/url\(['"]?([^'")]+)['"]?\)/g, (match, url) => {
+        const resolved = resolveUrl(url, baseUrl);
+        if (resolved) {
+          return `url('/~s/${_0x3e(resolved)}')`;
+        }
+        return match;
+      });
+      $(el).attr('style', style);
+    });
+
+    // Remove CSP meta tags that might block our scripts
+    $('meta[http-equiv="Content-Security-Policy"]').remove();
+
+    return $.html();
+  };
+
+  // Hidden proxy - serve proxied content (supports all HTTP methods)
+  app.all('/~s/:d', async (req, res) => {
+    try {
+      const decoded = _0x4d(req.params.d);
+      if (!decoded || !isValidUrl(decoded)) {
+        return res.status(400).send('Invalid request');
+      }
+
+      const method = req.method.toLowerCase();
+      const axiosConfig: any = {
+        method,
+        url: decoded,
+        timeout: REQUEST_TIMEOUT,
+        maxContentLength: MAX_RESPONSE_SIZE,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+        },
+        responseType: 'arraybuffer',
+        validateStatus: () => true,
+      };
+
+      // Forward request body for POST/PUT/PATCH
+      if (['post', 'put', 'patch'].includes(method)) {
+        if (req.body && Object.keys(req.body).length > 0) {
+          axiosConfig.data = req.body;
+          axiosConfig.headers['Content-Type'] = req.headers['content-type'] || 'application/x-www-form-urlencoded';
+        }
+      }
+
+      const response = await axios(axiosConfig);
+      const contentType = response.headers['content-type'] || 'text/html';
+      
+      // Handle redirects
+      if ([301, 302, 303, 307, 308].includes(response.status) && response.headers.location) {
+        const baseUrl = new URL(decoded);
+        const redirectUrl = resolveUrl(response.headers.location, baseUrl);
+        if (redirectUrl) {
+          return res.redirect(response.status, '/~s/' + _0x3e(redirectUrl));
+        }
+      }
+
+      // For HTML content, rewrite URLs comprehensively
+      if (contentType.includes('text/html')) {
+        const html = Buffer.from(response.data).toString('utf-8');
+        const baseUrl = new URL(decoded);
+        const rewrittenHtml = rewriteHtml(html, baseUrl);
+        
+        res.status(response.status);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(rewrittenHtml);
+      }
+
+      // For CSS content, rewrite url() references
+      if (contentType.includes('text/css')) {
+        let css = Buffer.from(response.data).toString('utf-8');
+        const baseUrl = new URL(decoded);
+        css = css.replace(/url\(['"]?([^'")]+)['"]?\)/g, (match, url) => {
+          const resolved = resolveUrl(url, baseUrl);
+          if (resolved) {
+            return `url('/~s/${_0x3e(resolved)}')`;
+          }
+          return match;
+        });
+        res.status(response.status);
+        res.setHeader('Content-Type', contentType);
+        return res.send(css);
+      }
+      
+      // For other content types, pass through with original status
+      res.status(response.status);
+      res.setHeader('Content-Type', contentType);
+      
+      // Forward cache headers if present
+      if (response.headers['cache-control']) {
+        res.setHeader('Cache-Control', response.headers['cache-control']);
+      }
+      
+      return res.send(Buffer.from(response.data));
+    } catch (error: any) {
+      console.error('Proxy error:', error.message);
+      return res.status(500).send(`
+        <html>
+          <body style="background:#1a1a1a;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+            <div style="text-align:center;">
+              <h2>Unable to load page</h2>
+              <p style="color:#888;">The requested resource could not be fetched.</p>
+            </div>
+          </body>
+        </html>
+      `);
+    }
+  });
+
   // Auth routes
   app.post('/api/auth/register', async (req, res) => {
     try {

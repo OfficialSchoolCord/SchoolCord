@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { BrowserControls } from './BrowserControls';
 import { Loader2, AlertCircle, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,20 @@ interface BrowserViewProps {
   onBack: () => void;
   onForward: () => void;
   onClose: () => void;
+  useProxy?: boolean;
 }
+
+const _0x5f = 0x5A;
+const _0x3e = (s: string): string => {
+  const arr = new Uint8Array(new TextEncoder().encode(s));
+  const r = new Uint8Array(arr.length);
+  for (let i = 0; i < arr.length; i++) {
+    r[i] = arr[i] ^ _0x5f;
+  }
+  let binary = '';
+  r.forEach(b => binary += String.fromCharCode(b));
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
 
 export function BrowserView({
   url,
@@ -33,15 +46,54 @@ export function BrowserView({
   onBack,
   onForward,
   onClose,
+  useProxy = true,
 }: BrowserViewProps) {
   const canGoBack = historyIndex > 0;
   const canGoForward = historyIndex < history.length - 1;
+  const [proxyUrl, setProxyUrl] = useState<string | null>(null);
+  const [iframeLoading, setIframeLoading] = useState(false);
+  const [iframeError, setIframeError] = useState<string | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    if (useProxy && url && !isSearch) {
+      let targetUrl = url;
+      if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+        if (targetUrl.includes('.') && !targetUrl.includes(' ')) {
+          targetUrl = 'https://' + targetUrl;
+        }
+      }
+      
+      if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
+        setIframeLoading(true);
+        setIframeError(null);
+        const encoded = _0x3e(targetUrl);
+        setProxyUrl('/~s/' + encoded);
+      }
+    } else {
+      setProxyUrl(null);
+    }
+  }, [url, useProxy, isSearch]);
+
+  const handleIframeLoad = () => {
+    setIframeLoading(false);
+  };
+
+  const handleIframeError = () => {
+    setIframeLoading(false);
+    setIframeError('Failed to load the page through proxy');
+  };
 
   const handleRefresh = useCallback(() => {
-    if (url) {
+    if (useProxy && proxyUrl) {
+      setIframeLoading(true);
+      if (iframeRef.current) {
+        iframeRef.current.src = proxyUrl;
+      }
+    } else if (url) {
       onNavigate(url);
     }
-  }, [url, onNavigate]);
+  }, [url, onNavigate, useProxy, proxyUrl]);
 
   const openInNewTab = () => {
     if (isSearch && searchUrl) {
@@ -50,6 +102,9 @@ export function BrowserView({
       window.open(url, '_blank', 'noopener,noreferrer');
     }
   };
+
+  const showIframe = useProxy && proxyUrl && !isSearch;
+  const showContent = !showIframe && !error && !isLoading && content;
 
   return (
     <div 
@@ -64,7 +119,7 @@ export function BrowserView({
         url={url}
         canGoBack={canGoBack}
         canGoForward={canGoForward}
-        isLoading={isLoading}
+        isLoading={isLoading || iframeLoading}
         onBack={onBack}
         onForward={onForward}
         onRefresh={handleRefresh}
@@ -73,7 +128,7 @@ export function BrowserView({
       />
 
       <main className="flex-1 overflow-hidden relative">
-        {isLoading && (
+        {(isLoading || iframeLoading) && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
             <div className="flex flex-col items-center gap-4">
               <div 
@@ -90,7 +145,7 @@ export function BrowserView({
           </div>
         )}
 
-        {error && !isLoading && (
+        {(error || iframeError) && !isLoading && !iframeLoading && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div 
               className="flex flex-col items-center gap-6 p-8 rounded-2xl max-w-md text-center"
@@ -110,13 +165,13 @@ export function BrowserView({
               </div>
               <div>
                 <h3 className="text-lg font-medium text-white mb-2">Unable to Load Page</h3>
-                <p className="text-white/60 text-sm">{error}</p>
+                <p className="text-white/60 text-sm">{error || iframeError}</p>
               </div>
               <div className="flex gap-3">
                 <Button
                   variant="outline"
                   onClick={handleRefresh}
-                  className="border-white/20 hover:bg-white/10"
+                  className="border-white/20"
                   data-testid="button-retry"
                 >
                   Try Again
@@ -124,7 +179,6 @@ export function BrowserView({
                 <Button
                   variant="ghost"
                   onClick={onClose}
-                  className="hover:bg-white/10"
                   data-testid="button-go-home"
                 >
                   Go Home
@@ -134,11 +188,23 @@ export function BrowserView({
           </div>
         )}
 
-        {!error && !isLoading && content && (
+        {showIframe && (
+          <iframe
+            ref={iframeRef}
+            src={proxyUrl}
+            className="w-full h-full border-0"
+            onLoad={handleIframeLoad}
+            onError={handleIframeError}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            data-testid="browser-iframe"
+          />
+        )}
+
+        {showContent && (
           <div className="h-full flex flex-col">
             {isSearch && searchUrl && (
               <div 
-                className="flex items-center justify-between px-4 py-2"
+                className="flex items-center justify-between gap-2 px-4 py-2"
                 style={{
                   background: 'rgba(139, 92, 246, 0.1)',
                   borderBottom: '1px solid rgba(139, 92, 246, 0.2)',
@@ -151,7 +217,7 @@ export function BrowserView({
                   variant="ghost"
                   size="sm"
                   onClick={openInNewTab}
-                  className="gap-2 text-white/70 hover:text-white hover:bg-white/10"
+                  className="gap-2 text-white/70 hover:text-white"
                   data-testid="button-open-external"
                 >
                   <span>Open in new tab</span>
@@ -187,7 +253,7 @@ export function BrowserView({
           </div>
         )}
 
-        {!error && !isLoading && !content && (
+        {!error && !iframeError && !isLoading && !iframeLoading && !content && !showIframe && (
           <div className="absolute inset-0 flex items-center justify-center">
             <p className="text-white/40">Enter a URL or search term to browse</p>
           </div>
