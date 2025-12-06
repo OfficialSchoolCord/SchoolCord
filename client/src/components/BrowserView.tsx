@@ -21,13 +21,12 @@ interface BrowserViewProps {
   sessionId?: string | null;
 }
 
-const _0x5f = 0x5A;
+const _0x7b = [0x5A, 0x3F, 0x7C, 0x2B, 0x6E];
+const _0x9c = (i: number) => _0x7b[i % _0x7b.length];
 const _0x3e = (s: string): string => {
   const arr = new Uint8Array(new TextEncoder().encode(s));
   const r = new Uint8Array(arr.length);
-  for (let i = 0; i < arr.length; i++) {
-    r[i] = arr[i] ^ _0x5f;
-  }
+  for (let i = 0; i < arr.length; i++) { r[i] = arr[i] ^ _0x9c(i); }
   let binary = '';
   r.forEach(b => binary += String.fromCharCode(b));
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');

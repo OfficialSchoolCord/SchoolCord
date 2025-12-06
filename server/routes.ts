@@ -84,30 +84,31 @@ function requireModerator(req: any, res: any, next: any) {
 }
 
 const MAX_RESPONSE_SIZE = 5 * 1024 * 1024;
-const REQUEST_TIMEOUT = 10000;
+const REQUEST_TIMEOUT = 15000;
 
-// Hidden proxy URL encoding/decoding (XOR obfuscation)
-const _0x5f = 0x5A; // Obfuscated key
+const _0x7b = [0x5A, 0x3F, 0x7C, 0x2B, 0x6E];
+const _0x9c = (i: number) => _0x7b[i % _0x7b.length];
 const _0x3e = (s: string): string => {
   const b = Buffer.from(s, 'utf-8');
   const r = Buffer.alloc(b.length);
-  for (let i = 0; i < b.length; i++) {
-    r[i] = b[i] ^ _0x5f;
-  }
+  for (let i = 0; i < b.length; i++) { r[i] = b[i] ^ _0x9c(i); }
   return r.toString('base64url');
 };
 const _0x4d = (e: string): string => {
   try {
     const b = Buffer.from(e, 'base64url');
     const r = Buffer.alloc(b.length);
-    for (let i = 0; i < b.length; i++) {
-      r[i] = b[i] ^ _0x5f;
-    }
+    for (let i = 0; i < b.length; i++) { r[i] = b[i] ^ _0x9c(i); }
     return r.toString('utf-8');
-  } catch {
-    return '';
-  }
+  } catch { return ''; }
 };
+const _0xUA = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+];
+const _0xGetUA = () => _0xUA[Math.floor(Math.random() * _0xUA.length)];
 
 function isBlockedHost(hostname: string): boolean {
   const lowerHost = hostname.toLowerCase();
@@ -455,12 +456,17 @@ export async function registerRoutes(
         timeout: REQUEST_TIMEOUT,
         maxContentLength: MAX_RESPONSE_SIZE,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'User-Agent': _0xGetUA(),
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.5',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'DNT': '1',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
         },
         responseType: 'arraybuffer',
         validateStatus: () => true,
+        maxRedirects: 5,
       };
 
       // Forward request body for POST/PUT/PATCH
