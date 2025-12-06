@@ -1,6 +1,6 @@
 
-import { useState } from 'react';
-import { X, Gamepad2, Zap, Target, Puzzle, ArrowLeft } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Gamepad2, Zap, Target, Puzzle, ArrowLeft, Globe, Crosshair, Cookie, Pickaxe, Sword, Car, Bird, Rocket, Dices, Ghost, Blocks, Trophy, Joystick, Loader2, Swords, Mountain, Fish, Skull, Flame, Sparkles, Bomb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -9,13 +9,247 @@ interface GamesPanelProps {
   onClose: () => void;
 }
 
-const games = [
+async function encodeProxyUrl(url: string): Promise<string> {
+  try {
+    const response = await fetch('/api/~e', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ u: url }),
+    });
+    const data = await response.json();
+    return data.r || '';
+  } catch {
+    return '';
+  }
+}
+
+type GameType = 'local' | 'proxy';
+
+interface Game {
+  id: string;
+  name: string;
+  icon: any;
+  color: string;
+  description: string;
+  type: GameType;
+  url?: string;
+}
+
+const games: Game[] = [
+  {
+    id: '1v1lol',
+    name: '1v1.LOL',
+    icon: Crosshair,
+    color: '#ef4444',
+    description: 'Build and battle in this fast-paced shooter!',
+    type: 'proxy',
+    url: 'https://www.1v1.lol/',
+  },
+  {
+    id: 'cookieclicker',
+    name: 'Cookie Clicker',
+    icon: Cookie,
+    color: '#f59e0b',
+    description: 'Click cookies to build your cookie empire!',
+    type: 'proxy',
+    url: 'https://orteil.dashnet.org/cookieclicker/',
+  },
+  {
+    id: 'eaglercraft',
+    name: 'Eaglercraft',
+    icon: Pickaxe,
+    color: '#22c55e',
+    description: 'Minecraft in your browser - build and explore!',
+    type: 'proxy',
+    url: 'https://eaglercraft.com/mc/1.8.8-wasm/',
+  },
+  {
+    id: 'shellshockers',
+    name: 'Shell Shockers',
+    icon: Target,
+    color: '#fbbf24',
+    description: 'Egg-themed multiplayer FPS action!',
+    type: 'proxy',
+    url: 'https://www.shellshock.io/',
+  },
+  {
+    id: 'slope',
+    name: 'Slope',
+    icon: Mountain,
+    color: '#10b981',
+    description: 'Roll down the endless slope - avoid obstacles!',
+    type: 'proxy',
+    url: 'https://slopegame.io/',
+  },
+  {
+    id: 'retrobowl',
+    name: 'Retro Bowl',
+    icon: Trophy,
+    color: '#3b82f6',
+    description: 'Classic football management and gameplay!',
+    type: 'proxy',
+    url: 'https://retrobowl.app/',
+  },
+  {
+    id: 'zombsroyale',
+    name: 'Zombs Royale',
+    icon: Ghost,
+    color: '#8b5cf6',
+    description: '2D battle royale - be the last one standing!',
+    type: 'proxy',
+    url: 'https://zombsroyale.io/',
+  },
+  {
+    id: 'driftboss',
+    name: 'Drift Boss',
+    icon: Car,
+    color: '#ec4899',
+    description: 'Master the art of drifting!',
+    type: 'proxy',
+    url: 'https://www.silvergames.com/en/drift-boss',
+  },
+  {
+    id: 'flappybird',
+    name: 'Flappy Bird',
+    icon: Bird,
+    color: '#84cc16',
+    description: 'The classic tap-to-fly game!',
+    type: 'proxy',
+    url: 'https://flappybird.io/',
+  },
+  {
+    id: 'paperio',
+    name: 'Paper.io 2',
+    icon: Blocks,
+    color: '#f472b6',
+    description: 'Conquer territory in this addictive game!',
+    type: 'proxy',
+    url: 'https://paper-io.com/',
+  },
+  {
+    id: '2048',
+    name: '2048',
+    icon: Dices,
+    color: '#eab308',
+    description: 'Combine tiles to reach 2048!',
+    type: 'proxy',
+    url: 'https://play2048.co/',
+  },
+  {
+    id: 'getaway',
+    name: 'Getaway Shootout',
+    icon: Sword,
+    color: '#dc2626',
+    description: 'Crazy physics-based shooting game!',
+    type: 'proxy',
+    url: 'https://www.crazygames.com/game/getaway-shootout',
+  },
+  {
+    id: 'slither',
+    name: 'Slither.io',
+    icon: Sparkles,
+    color: '#a855f7',
+    description: 'Become the longest snake!',
+    type: 'proxy',
+    url: 'https://slither.io/',
+  },
+  {
+    id: 'agar',
+    name: 'Agar.io',
+    icon: Globe,
+    color: '#06b6d4',
+    description: 'Eat cells and grow bigger!',
+    type: 'proxy',
+    url: 'https://agar.io/',
+  },
+  {
+    id: 'krunker',
+    name: 'Krunker',
+    icon: Crosshair,
+    color: '#f97316',
+    description: 'Fast-paced browser FPS!',
+    type: 'proxy',
+    url: 'https://krunker.io/',
+  },
+  {
+    id: 'buildroyale',
+    name: 'Build Royale',
+    icon: Swords,
+    color: '#14b8a6',
+    description: 'Battle royale with building!',
+    type: 'proxy',
+    url: 'https://buildroyale.io/',
+  },
+  {
+    id: 'surviv',
+    name: 'Surviv.io',
+    icon: Skull,
+    color: '#facc15',
+    description: '2D battle royale survival!',
+    type: 'proxy',
+    url: 'https://surviv.io/',
+  },
+  {
+    id: 'diep',
+    name: 'Diep.io',
+    icon: Bomb,
+    color: '#0ea5e9',
+    description: 'Tank battle arena game!',
+    type: 'proxy',
+    url: 'https://diep.io/',
+  },
+  {
+    id: 'moomoo',
+    name: 'Moomoo.io',
+    icon: Flame,
+    color: '#65a30d',
+    description: 'Gather resources and build!',
+    type: 'proxy',
+    url: 'https://moomoo.io/',
+  },
+  {
+    id: 'defly',
+    name: 'Defly.io',
+    icon: Rocket,
+    color: '#7c3aed',
+    description: 'Helicopter territory control!',
+    type: 'proxy',
+    url: 'https://defly.io/',
+  },
+  {
+    id: 'bonkio',
+    name: 'Bonk.io',
+    icon: Joystick,
+    color: '#e11d48',
+    description: 'Physics-based multiplayer game!',
+    type: 'proxy',
+    url: 'https://bonk.io/',
+  },
+  {
+    id: 'crazygames',
+    name: 'Crazy Games',
+    icon: Gamepad2,
+    color: '#a855f7',
+    description: 'Browse thousands of free games!',
+    type: 'proxy',
+    url: 'https://www.crazygames.com/',
+  },
+  {
+    id: 'poki',
+    name: 'Poki',
+    icon: Globe,
+    color: '#6366f1',
+    description: 'Free online games platform!',
+    type: 'proxy',
+    url: 'https://poki.com/',
+  },
   {
     id: 'snake',
     name: 'Snake Game',
     icon: Zap,
     color: '#22c55e',
     description: 'Classic snake game - eat the food and grow!',
+    type: 'local',
   },
   {
     id: 'pong',
@@ -23,6 +257,7 @@ const games = [
     icon: Target,
     color: '#3b82f6',
     description: 'Classic paddle game - keep the ball in play!',
+    type: 'local',
   },
   {
     id: 'memory',
@@ -30,18 +265,35 @@ const games = [
     icon: Puzzle,
     color: '#f59e0b',
     description: 'Match pairs of cards to win!',
+    type: 'local',
   },
 ];
 
 export function GamesPanel({ onClose }: GamesPanelProps) {
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
+  const [proxyUrl, setProxyUrl] = useState<string>('');
+  const [isLoadingProxy, setIsLoadingProxy] = useState(false);
+
+  const selectedGameData = games.find(g => g.id === selectedGame);
+
+  useEffect(() => {
+    if (selectedGame && selectedGameData?.type === 'proxy' && selectedGameData.url) {
+      setIsLoadingProxy(true);
+      encodeProxyUrl(selectedGameData.url).then((encoded) => {
+        setProxyUrl(encoded);
+        setIsLoadingProxy(false);
+      });
+    } else {
+      setProxyUrl('');
+    }
+  }, [selectedGame, selectedGameData]);
 
   const renderSnakeGame = () => (
     <div className="w-full h-full flex items-center justify-center bg-black/50 rounded-lg p-4">
       <div className="text-center">
         <canvas id="snakeCanvas" width="400" height="400" className="border-2 border-white/20 rounded-lg mx-auto bg-black/80"></canvas>
         <div className="mt-4 text-white/70 text-sm">
-          Use Arrow Keys to Move • Score: <span id="snakeScore">0</span>
+          Use Arrow Keys to Move | Score: <span id="snakeScore">0</span>
         </div>
         <Button onClick={() => {
           const canvas = document.getElementById('snakeCanvas') as HTMLCanvasElement;
@@ -62,7 +314,7 @@ export function GamesPanel({ onClose }: GamesPanelProps) {
       <div className="text-center">
         <canvas id="pongCanvas" width="600" height="400" className="border-2 border-white/20 rounded-lg mx-auto bg-black/80"></canvas>
         <div className="mt-4 text-white/70 text-sm">
-          Use W/S Keys or Up/Down Arrows • Player: <span id="playerScore">0</span> | AI: <span id="aiScore">0</span>
+          Use W/S Keys or Up/Down Arrows | Player: <span id="playerScore">0</span> | AI: <span id="aiScore">0</span>
         </div>
         <Button onClick={() => {
           const canvas = document.getElementById('pongCanvas') as HTMLCanvasElement;
@@ -87,6 +339,41 @@ export function GamesPanel({ onClose }: GamesPanelProps) {
         </div>
         <Button onClick={initMemoryGame} className="mt-2">New Game</Button>
       </div>
+    </div>
+  );
+
+  const renderProxyGame = () => (
+    <div className="w-full h-full flex flex-col">
+      {isLoadingProxy ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div 
+              className="w-16 h-16 rounded-full flex items-center justify-center"
+              style={{
+                background: 'rgba(220, 38, 38, 0.1)',
+                boxShadow: '0 0 30px rgba(220, 38, 38, 0.3)',
+              }}
+            >
+              <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            </div>
+            <p className="text-white/60 text-sm">Loading game...</p>
+          </div>
+        </div>
+      ) : proxyUrl ? (
+        <div className="flex-1 relative overflow-hidden rounded-lg">
+          <iframe
+            src={`/~s/${proxyUrl}`}
+            className="w-full h-full border-0"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-pointer-lock"
+            title={selectedGameData?.name || 'Game'}
+            allow="fullscreen; autoplay"
+          />
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-white/60">Failed to load game. Please try again.</p>
+        </div>
+      )}
     </div>
   );
 
@@ -231,7 +518,7 @@ export function GamesPanel({ onClose }: GamesPanelProps) {
     const container = document.getElementById('memoryGame');
     if (!container) return;
 
-    const symbols = ['🎮', '🎯', '🎲', '🎪', '🎨', '🎭', '🎸', '🎹'];
+    const symbols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
     const cards = [...symbols, ...symbols].sort(() => Math.random() - 0.5);
     let flipped: number[] = [];
     let matched: number[] = [];
@@ -287,12 +574,18 @@ export function GamesPanel({ onClose }: GamesPanelProps) {
 
   const handleGameSelect = (gameId: string) => {
     setSelectedGame(gameId);
-    setTimeout(() => {
-      if (gameId === 'snake') initSnakeGame();
-      else if (gameId === 'pong') initPongGame();
-      else if (gameId === 'memory') initMemoryGame();
-    }, 100);
+    const game = games.find(g => g.id === gameId);
+    if (game?.type === 'local') {
+      setTimeout(() => {
+        if (gameId === 'snake') initSnakeGame();
+        else if (gameId === 'pong') initPongGame();
+        else if (gameId === 'memory') initMemoryGame();
+      }, 100);
+    }
   };
+
+  const proxyGames = games.filter(g => g.type === 'proxy');
+  const localGames = games.filter(g => g.type === 'local');
 
   return (
     <div 
@@ -304,7 +597,7 @@ export function GamesPanel({ onClose }: GamesPanelProps) {
       data-testid="games-panel"
     >
       <Card 
-        className="w-full max-w-4xl h-[80vh] border-white/10 flex flex-col"
+        className="w-full max-w-6xl h-[90vh] border-white/10 flex flex-col"
         style={{
           background: 'rgba(30, 20, 40, 0.95)',
           backdropFilter: 'blur(20px)',
@@ -315,66 +608,133 @@ export function GamesPanel({ onClose }: GamesPanelProps) {
             <Button
               variant="ghost"
               size="icon"
-              onClick={onClose}
+              onClick={selectedGame ? () => setSelectedGame(null) : onClose}
               className="text-white/70 hover:text-white hover:bg-white/10"
               data-testid="button-back-games"
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <Gamepad2 className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-semibold text-white">Games Arcade</h2>
+            <h2 className="text-xl font-semibold text-white">
+              {selectedGame ? selectedGameData?.name || 'Game' : 'Games Arcade'}
+            </h2>
           </div>
+          {selectedGame && selectedGameData?.type === 'proxy' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setProxyUrl('');
+                setIsLoadingProxy(true);
+                if (selectedGameData.url) {
+                  encodeProxyUrl(selectedGameData.url).then((encoded) => {
+                    setProxyUrl(encoded);
+                    setIsLoadingProxy(false);
+                  });
+                }
+              }}
+              className="text-white/70 hover:text-white"
+            >
+              Refresh
+            </Button>
+          )}
         </div>
 
         {!selectedGame ? (
-          <ScrollArea className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {games.map((game) => {
-                const Icon = game.icon;
-                return (
-                  <button
-                    key={game.id}
-                    onClick={() => handleGameSelect(game.id)}
-                    className="flex flex-col items-center gap-3 p-6 rounded-xl transition-all duration-200 hover-elevate"
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.03)',
-                      border: '1px solid rgba(255, 255, 255, 0.05)',
-                    }}
-                    data-testid={`game-${game.id}`}
-                  >
-                    <div 
-                      className="w-16 h-16 rounded-xl flex items-center justify-center"
+          <ScrollArea className="flex-1 p-6">
+            <div className="mb-6">
+              <h3 className="text-lg font-medium text-white/80 mb-4 flex items-center gap-2">
+                <Globe className="w-5 h-5" />
+                Online Games
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {proxyGames.map((game) => {
+                  const Icon = game.icon;
+                  return (
+                    <button
+                      key={game.id}
+                      onClick={() => handleGameSelect(game.id)}
+                      className="flex flex-col items-center gap-3 p-4 rounded-xl transition-all duration-200 hover-elevate"
                       style={{
-                        background: `${game.color}20`,
-                        boxShadow: `0 0 20px ${game.color}30`,
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
                       }}
+                      data-testid={`game-${game.id}`}
                     >
-                      <Icon 
-                        className="w-8 h-8" 
-                        style={{ color: game.color }}
-                      />
-                    </div>
-                    <div className="text-center">
-                      <h3 className="text-white font-medium mb-1">{game.name}</h3>
-                      <p className="text-white/60 text-sm">{game.description}</p>
-                    </div>
-                  </button>
-                );
-              })}
+                      <div 
+                        className="w-14 h-14 rounded-xl flex items-center justify-center"
+                        style={{
+                          background: `${game.color}20`,
+                          boxShadow: `0 0 20px ${game.color}30`,
+                        }}
+                      >
+                        <Icon 
+                          className="w-7 h-7" 
+                          style={{ color: game.color }}
+                        />
+                      </div>
+                      <div className="text-center">
+                        <h3 className="text-white font-medium text-sm mb-1">{game.name}</h3>
+                        <p className="text-white/50 text-xs line-clamp-2">{game.description}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-medium text-white/80 mb-4 flex items-center gap-2">
+                <Gamepad2 className="w-5 h-5" />
+                Offline Games
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {localGames.map((game) => {
+                  const Icon = game.icon;
+                  return (
+                    <button
+                      key={game.id}
+                      onClick={() => handleGameSelect(game.id)}
+                      className="flex flex-col items-center gap-3 p-4 rounded-xl transition-all duration-200 hover-elevate"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                      }}
+                      data-testid={`game-${game.id}`}
+                    >
+                      <div 
+                        className="w-14 h-14 rounded-xl flex items-center justify-center"
+                        style={{
+                          background: `${game.color}20`,
+                          boxShadow: `0 0 20px ${game.color}30`,
+                        }}
+                      >
+                        <Icon 
+                          className="w-7 h-7" 
+                          style={{ color: game.color }}
+                        />
+                      </div>
+                      <div className="text-center">
+                        <h3 className="text-white font-medium text-sm mb-1">{game.name}</h3>
+                        <p className="text-white/50 text-xs">{game.description}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </ScrollArea>
         ) : (
-          <div className="flex-1 p-4 overflow-auto">
-            <Button
-              onClick={() => setSelectedGame(null)}
-              variant="ghost"
-              className="mb-4 text-white/70 hover:text-white"
-            >
-              ← Back to Games
-            </Button>
-            {selectedGame === 'snake' && renderSnakeGame()}
-            {selectedGame === 'pong' && renderPongGame()}
-            {selectedGame === 'memory' && renderMemoryGame()}
+          <div className="flex-1 p-4 overflow-hidden flex flex-col">
+            {selectedGameData?.type === 'local' ? (
+              <>
+                {selectedGame === 'snake' && renderSnakeGame()}
+                {selectedGame === 'pong' && renderPongGame()}
+                {selectedGame === 'memory' && renderMemoryGame()}
+              </>
+            ) : (
+              renderProxyGame()
+            )}
           </div>
         )}
       </Card>
