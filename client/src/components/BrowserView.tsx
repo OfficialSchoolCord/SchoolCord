@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useCallback } from 'react';
 import { BrowserControls } from './BrowserControls';
 import { TabBar } from './TabBar';
 import { Loader2, AlertCircle, ExternalLink } from 'lucide-react';
@@ -19,7 +19,6 @@ interface BrowserViewProps {
   onBack: () => void;
   onForward: () => void;
   onClose: () => void;
-  useProxy?: boolean;
   sessionId?: string | null;
   tabs?: BrowserTab[];
   activeTabId?: string | null;
@@ -27,17 +26,6 @@ interface BrowserViewProps {
   onTabClose?: (tabId: string) => void;
   onNewTab?: () => void;
 }
-
-const _0x7b = [0x5A, 0x3F, 0x7C, 0x2B, 0x6E];
-const _0x9c = (i: number) => _0x7b[i % _0x7b.length];
-const _0x3e = (s: string): string => {
-  const arr = new Uint8Array(new TextEncoder().encode(s));
-  const r = new Uint8Array(arr.length);
-  for (let i = 0; i < arr.length; i++) { r[i] = arr[i] ^ _0x9c(i); }
-  let binary = '';
-  r.forEach(b => binary += String.fromCharCode(b));
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-};
 
 export function BrowserView({
   url,
@@ -53,7 +41,6 @@ export function BrowserView({
   onBack,
   onForward,
   onClose,
-  useProxy = true,
   sessionId,
   tabs = [],
   activeTabId = null,
@@ -61,50 +48,12 @@ export function BrowserView({
   onTabClose = () => {},
   onNewTab = () => {},
 }: BrowserViewProps) {
-  const [proxyUrl, setProxyUrl] = useState<string | null>(null);
-  const [iframeLoading, setIframeLoading] = useState(false);
-  const [iframeError, setIframeError] = useState<string | null>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  useEffect(() => {
-    if (useProxy && url && !isSearch) {
-      let targetUrl = url;
-      if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
-        if (targetUrl.includes('.') && !targetUrl.includes(' ')) {
-          targetUrl = 'https://' + targetUrl;
-        }
-      }
-      
-      if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
-        setIframeLoading(true);
-        setIframeError(null);
-        const encoded = _0x3e(targetUrl);
-        setProxyUrl('/~s/' + encoded);
-      }
-    } else {
-      setProxyUrl(null);
-    }
-  }, [url, useProxy, isSearch]);
-
-  const handleIframeLoad = () => {
-    setIframeLoading(false);
-  };
-
-  const handleIframeError = () => {
-    setIframeLoading(false);
-    setIframeError('Failed to load the page through proxy');
-  };
 
   const handleRefresh = useCallback(() => {
-    if (useProxy && proxyUrl) {
-      setIframeLoading(true);
-      if (iframeRef.current) {
-        iframeRef.current.src = proxyUrl;
-      }
-    } else if (url) {
+    if (url) {
       onSearch(url);
     }
-  }, [url, onSearch, useProxy, proxyUrl]);
+  }, [url, onSearch]);
 
   const openInNewTab = () => {
     if (isSearch && searchUrl) {
@@ -114,8 +63,7 @@ export function BrowserView({
     }
   };
 
-  const showIframe = useProxy && proxyUrl && !isSearch;
-  const showContent = !showIframe && !error && !isLoading && content;
+  const showContent = !error && !isLoading && content;
 
   return (
     <div 
@@ -137,7 +85,7 @@ export function BrowserView({
         url={url}
         canGoBack={canGoBack}
         canGoForward={canGoForward}
-        isLoading={isLoading || iframeLoading}
+        isLoading={isLoading}
         onBack={onBack}
         onForward={onForward}
         onRefresh={handleRefresh}
@@ -146,7 +94,7 @@ export function BrowserView({
       />
 
       <main className="flex-1 overflow-hidden relative">
-        {(isLoading || iframeLoading) && (
+        {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
             <div className="flex flex-col items-center gap-4">
               <div 
@@ -163,7 +111,7 @@ export function BrowserView({
           </div>
         )}
 
-        {(error || iframeError) && !isLoading && !iframeLoading && (
+        {error && !isLoading && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div 
               className="flex flex-col items-center gap-6 p-8 rounded-2xl max-w-md text-center"
@@ -183,7 +131,7 @@ export function BrowserView({
               </div>
               <div>
                 <h3 className="text-lg font-medium text-white mb-2">Unable to Load Page</h3>
-                <p className="text-white/60 text-sm">{error || iframeError}</p>
+                <p className="text-white/60 text-sm">{error}</p>
               </div>
               <div className="flex gap-3">
                 <Button
@@ -204,18 +152,6 @@ export function BrowserView({
               </div>
             </div>
           </div>
-        )}
-
-        {showIframe && (
-          <iframe
-            ref={iframeRef}
-            src={proxyUrl}
-            className="w-full h-full border-0"
-            onLoad={handleIframeLoad}
-            onError={handleIframeError}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-            data-testid="browser-iframe"
-          />
         )}
 
         {showContent && (
@@ -271,7 +207,7 @@ export function BrowserView({
           </div>
         )}
 
-        {!error && !iframeError && !isLoading && !iframeLoading && !content && !showIframe && (
+        {!error && !isLoading && !content && (
           <div className="absolute inset-0 flex items-center justify-center">
             <p className="text-white/40">Enter a URL or search term to browse</p>
           </div>
