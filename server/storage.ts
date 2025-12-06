@@ -461,8 +461,31 @@ export const storage = {
 // Initialize admin user if needed
 function initializeAdminUser() {
   // Set SchoolCord as primary admin with enhanced security
-  const schoolCord = getUserByUsername('SchoolCord');
-  if (schoolCord) {
+  let schoolCord = getUserByUsername('SchoolCord');
+  
+  // Create SchoolCord admin account if it doesn't exist
+  if (!schoolCord) {
+    const adminPassword = process.env.ADMIN_PASSWORD || 'SchoolCord2024!';
+    const id = `user-admin-${Date.now()}`;
+    const hashedPassword = hashPassword(adminPassword);
+    schoolCord = {
+      id,
+      username: 'SchoolCord',
+      password: hashedPassword,
+      email: undefined,
+      role: 'admin' as UserRole,
+      isAdmin: true,
+      profilePicture: undefined,
+      googleAccountLinked: false,
+      createdAt: new Date().toISOString(),
+      lastLogin: undefined,
+      level: 999999,
+      xp: 999999999,
+      badges: ['admin', 'founder', 'verified'],
+    };
+    storage.users.set(id, schoolCord);
+    console.log('Created SchoolCord admin account');
+  } else {
     schoolCord.role = 'admin';
     schoolCord.isAdmin = true;
     // Set strong password from environment or keep existing
