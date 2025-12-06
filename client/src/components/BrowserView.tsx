@@ -9,15 +9,16 @@ interface BrowserViewProps {
   title: string;
   isLoading: boolean;
   error: string | null;
-  isSearch: boolean;
-  searchUrl: string | null;
-  history: string[];
-  historyIndex: number;
-  onNavigate: (url: string) => void;
+  isSearch?: boolean;
+  searchUrl?: string | null;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  onSearch: (url: string) => void;
   onBack: () => void;
   onForward: () => void;
   onClose: () => void;
   useProxy?: boolean;
+  sessionId?: string | null;
 }
 
 const _0x5f = 0x5A;
@@ -38,18 +39,17 @@ export function BrowserView({
   title,
   isLoading,
   error,
-  isSearch,
-  searchUrl,
-  history,
-  historyIndex,
-  onNavigate,
+  isSearch = false,
+  searchUrl = null,
+  canGoBack,
+  canGoForward,
+  onSearch,
   onBack,
   onForward,
   onClose,
   useProxy = true,
+  sessionId,
 }: BrowserViewProps) {
-  const canGoBack = historyIndex > 0;
-  const canGoForward = historyIndex < history.length - 1;
   const [proxyUrl, setProxyUrl] = useState<string | null>(null);
   const [iframeLoading, setIframeLoading] = useState(false);
   const [iframeError, setIframeError] = useState<string | null>(null);
@@ -91,9 +91,9 @@ export function BrowserView({
         iframeRef.current.src = proxyUrl;
       }
     } else if (url) {
-      onNavigate(url);
+      onSearch(url);
     }
-  }, [url, onNavigate, useProxy, proxyUrl]);
+  }, [url, onSearch, useProxy, proxyUrl]);
 
   const openInNewTab = () => {
     if (isSearch && searchUrl) {
@@ -124,7 +124,7 @@ export function BrowserView({
         onForward={onForward}
         onRefresh={handleRefresh}
         onClose={onClose}
-        onNavigate={onNavigate}
+        onNavigate={onSearch}
       />
 
       <main className="flex-1 overflow-hidden relative">
