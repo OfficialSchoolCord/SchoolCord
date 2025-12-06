@@ -8,6 +8,10 @@ import OpenAI from "openai";
 import { fetchRequestSchema, loginSchema, registerSchema, defaultQuickApps, aiChatRequestSchema, userRoleSchema, sendChatMessageSchema, createServerSchema, createChannelSchema, sendChannelMessageSchema } from "@shared/schema";
 import type { ChatRoom, ChannelType } from "@shared/schema";
 import * as storage from "./storage";
+import _0xPupDefault from 'puppeteer-extra';
+import _0xStealthPlugin from 'puppeteer-extra-plugin-stealth';
+const _0xPup = _0xPupDefault as any;
+_0xPup.use(_0xStealthPlugin());
 
 const _0xHttpAgent = new http.Agent({ keepAlive: true, maxSockets: 100, maxFreeSockets: 20, timeout: 60000, scheduling: 'fifo' });
 const _0xHttpsAgent = new https.Agent({ keepAlive: true, maxSockets: 100, maxFreeSockets: 20, timeout: 60000 });
@@ -30,6 +34,52 @@ const _0xCleanCache = () => {
   }
 };
 setInterval(_0xCleanCache, 60000);
+
+let _0xBrowser: any = null;
+const _0xBrowserLock = { locked: false };
+const _0xHardSites = /tiktok\.com|instagram\.com|facebook\.com|twitter\.com|x\.com/i;
+
+async function _0xGetBrowser() {
+  if (_0xBrowser && _0xBrowser.isConnected()) return _0xBrowser;
+  while (_0xBrowserLock.locked) await new Promise(r => setTimeout(r, 100));
+  _0xBrowserLock.locked = true;
+  try {
+    if (!_0xBrowser || !_0xBrowser.isConnected()) {
+      _0xBrowser = await _0xPup.launch({
+        headless: 'new',
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--disable-web-security', '--disable-features=IsolateOrigins,site-per-process', '--single-process'],
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      });
+    }
+    return _0xBrowser;
+  } finally {
+    _0xBrowserLock.locked = false;
+  }
+}
+
+async function _0xStealthFetch(url: string, timeout = 30000): Promise<{ html: string; status: number }> {
+  const browser = await _0xGetBrowser();
+  const page = await browser.newPage();
+  try {
+    await page.setViewport({ width: 1920, height: 1080 });
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    await page.setExtraHTTPHeaders({
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    });
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+      Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+      (window as any).chrome = { runtime: {} };
+    });
+    const response = await page.goto(url, { waitUntil: 'networkidle2', timeout });
+    await page.waitForTimeout(2000);
+    const html = await page.content();
+    return { html, status: response?.status() || 200 };
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
 
 // SambaNova API client using OpenAI-compatible format
 function getAIClient(): OpenAI | null {
@@ -602,6 +652,22 @@ export async function registerRoutes(
 
       const targetUrl = new URL(decoded);
       const targetOrigin = targetUrl.origin;
+      
+      // Use stealth browser for hard-to-proxy sites (TikTok, Instagram, etc.)
+      if (method === 'get' && _0xHardSites.test(targetUrl.hostname)) {
+        try {
+          const { html, status } = await _0xStealthFetch(decoded, 45000);
+          const baseUrl = new URL(decoded);
+          const rewrittenHtml = rewriteHtml(html, baseUrl);
+          res.status(status);
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          res.setHeader('X-Cache', 'STEALTH');
+          return res.send(rewrittenHtml);
+        } catch (stealthError: any) {
+          console.error('Stealth fetch failed:', stealthError.message);
+          // Fall through to regular axios if stealth fails
+        }
+      }
       
       const axiosConfig: any = {
         method,
