@@ -1340,11 +1340,11 @@ export async function registerRoutes(
         if (userId) {
           storage.addToHistory(userId, {
             url: normalizedUrl,
-            title: '',
+            title: new URL(normalizedUrl).hostname,
             visitedAt: new Date().toISOString(),
             userId,
           });
-          // Award XP for searching
+          // Award XP for browsing
           levelUpData = storage.addXP(userId, 5);
           
           // Update quest progress
@@ -1353,54 +1353,14 @@ export async function registerRoutes(
         }
       }
       
-      const response = await axios.get(normalizedUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
-          'Accept-Encoding': 'gzip, deflate',
-          'Connection': 'keep-alive',
-          'Upgrade-Insecure-Requests': '1',
-        },
-        timeout: REQUEST_TIMEOUT,
-        maxRedirects: 3,
-        maxContentLength: MAX_RESPONSE_SIZE,
-        maxBodyLength: MAX_RESPONSE_SIZE,
-        responseType: 'text',
-        validateStatus: (status) => status >= 200 && status < 400,
-      });
-      
-      const contentType = response.headers['content-type'] || '';
-      
-      if (!contentType.includes('text/html') && !contentType.includes('text/plain')) {
-        return res.json({
-          success: true,
-          url: normalizedUrl,
-          title: 'File Content',
-          content: `This URL points to a non-HTML resource (${contentType}).\n\nThe content cannot be displayed as text. Click "Open in new tab" to view it directly.`,
-          isSearch: false,
-        });
-      }
-      
-      const { title, content } = extractTextContent(response.data);
-
-      // Update history with title
-      if (sessionId && storage.storage.sessions.has(sessionId)) {
-        const userId = storage.storage.sessions.get(sessionId);
-        if (userId) {
-          const history = storage.getUserHistory(userId);
-          if (history.length > 0 && history[0].url === normalizedUrl) {
-            history[0].title = title;
-          }
-        }
-      }
-      
+      // Return empty content to trigger iframe proxy mode for full website browsing
       return res.json({
         success: true,
         url: normalizedUrl,
-        title,
-        content,
+        title: new URL(normalizedUrl).hostname,
+        content: '', // Empty content triggers iframe proxy mode
         isSearch: false,
+        useProxy: true,
         levelUp: levelUpData,
       });
       

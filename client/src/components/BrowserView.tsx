@@ -86,7 +86,9 @@ export function BrowserView({
     }
   };
 
-  const showContent = !error && !isLoading && content;
+  // Show content area when not in error or loading state
+  // For proxy mode (empty content with valid URL), we still need to show the iframe
+  const showContent = !error && !isLoading && (content || url);
 
   return (
     <div 
@@ -245,7 +247,7 @@ export function BrowserView({
           </div>
         )}
 
-        {!error && !isLoading && !content && (
+        {!error && !isLoading && !content && !url && (
           <div className="absolute inset-0 flex items-center justify-center">
             <p className="text-white/40">Enter a URL or search term to browse</p>
           </div>
