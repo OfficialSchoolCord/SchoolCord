@@ -223,7 +223,7 @@ export default function Home() {
     }
 
     setShowBrowser(true);
-    setActivePanel('search'); // Changed from 'browser' to 'search' to align with SearchBox
+    setActivePanel(null);
     setPageError(null);
     setPageContent(null);
 
@@ -233,7 +233,7 @@ export default function Home() {
     setHistoryIndex(newHistory.length - 1);
 
     fetchMutation.mutate(query);
-  }, [history, historyIndex, fetchMutation, sessionId]); // Added sessionId dependency
+  }, [history, historyIndex, fetchMutation]);
 
   const handleBack = useCallback(() => {
     if (historyIndex > 0) {
@@ -529,45 +529,43 @@ export default function Home() {
               preselectedServerId={selectedServerId}
             />
           )}
-          {!selectedServerId && activePanel === 'home' && (
-            <HomePage 
-              onSearch={handleSearch} 
-              isLoading={fetchMutation.isPending} 
+          {!selectedServerId && showBrowser && (
+            <BrowserView
+              url={currentUrl}
+              title={pageTitle}
+              content={pageContent}
+              error={pageError}
+              isLoading={fetchMutation.isPending}
+              onSearch={handleSearch}
+              onBack={handleBack}
+              onForward={handleForward}
+              onClose={handleCloseBrowser}
+              canGoBack={historyIndex > 0}
+              canGoForward={historyIndex < history.length - 1}
               sessionId={sessionId}
             />
           )}
-          {!selectedServerId && activePanel === 'search' && <SearchBox onSearch={handleSearch} />}
-          {!selectedServerId && activePanel === 'apps' && <AppsPanel sessionId={sessionId} />}
-          {!selectedServerId && activePanel === 'games' && <GamesPanel />}
-          {!selectedServerId && activePanel === 'settings' && <SettingsPanel sessionId={sessionId} />}
-          {!selectedServerId && activePanel === 'history' && <HistoryPanel sessionId={sessionId} />}
-          {!selectedServerId && activePanel === 'profile' && <ProfilePanel sessionId={sessionId} />}
-          {!selectedServerId && activePanel === 'ai' && <AIChatPanel sessionId={sessionId} />}
-          {!selectedServerId && activePanel === 'admin' && userRole === 'admin' && <AdminPanel sessionId={sessionId} />}
-          {!selectedServerId && activePanel === 'chat' && selectedDMThreadId && (
-            <DMChatPanel 
-              sessionId={sessionId} 
-              threadId={selectedDMThreadId}
-              onClose={() => setSelectedDMThreadId(null)}
+          {!selectedServerId && !showBrowser && activePanel === 'home' && (
+            <HomePage 
+              onSearch={handleSearch} 
+              isLoading={fetchMutation.isPending}
             />
           )}
-          {!selectedServerId && activePanel === 'chat' && !selectedDMThreadId && <ChatPanel sessionId={sessionId} userRole={userRole} />}
-          {!selectedServerId && activePanel === 'leaderboard' && <LeaderboardPanel onClose={() => setActivePanel('home')} />}
-          {!selectedServerId && activePanel === 'friends' && (
+          {!selectedServerId && !showBrowser && activePanel === 'friends' && (
             <FriendsPanel 
               sessionId={sessionId} 
               onClose={() => setActivePanel('home')}
               onOpenDM={handleDMOpen}
             />
           )}
-          {!selectedServerId && activePanel === 'servers' && (
+          {!selectedServerId && !showBrowser && activePanel === 'servers' && (
             <ServersPanel 
               sessionId={sessionId} 
               user={user}
               onClose={() => setActivePanel('home')}
             />
           )}
-          {!selectedServerId && activePanel === 'discovery' && (
+          {!selectedServerId && !showBrowser && activePanel === 'discovery' && (
             <DiscoveryPanel 
               sessionId={sessionId}
               onClose={() => setActivePanel('home')}
@@ -576,7 +574,6 @@ export default function Home() {
               }}
             />
           )}
-          {!selectedServerId && searchUrl && !activePanel && <BrowserView url={searchUrl} sessionId={sessionId} />}
 
           {renderPanel()}
 
