@@ -350,6 +350,19 @@ export async function registerRoutes(
     // Remove existing base tags to prevent conflicts
     $('base').remove();
     
+    // Remove target attributes that could escape iframe
+    $('[target="_top"], [target="_parent"], [target="_blank"]').each((_, el) => {
+      $(el).removeAttr('target');
+    });
+    
+    // Remove onclick handlers that might navigate parent
+    $('[onclick]').each((_, el) => {
+      const onclick = $(el).attr('onclick') || '';
+      if (onclick.includes('top.') || onclick.includes('parent.') || onclick.includes('window.open')) {
+        $(el).removeAttr('onclick');
+      }
+    });
+    
     // Rewrite all navigational URLs (links, forms)
     $('a[href]').each((_, el) => {
       const href = $(el).attr('href');
@@ -437,6 +450,108 @@ export async function registerRoutes(
 
     // Remove CSP meta tags that might block our scripts
     $('meta[http-equiv="Content-Security-Policy"]').remove();
+    $('meta[http-equiv="X-Frame-Options"]').remove();
+    
+    // Inject anti-detection and iframe containment script at the start of head
+    const antiDetectionScript = `
+<script>
+(function(){
+  // Prevent parent/top navigation
+  try {
+    Object.defineProperty(window, 'top', { get: function() { return window; }, configurable: false });
+    Object.defineProperty(window, 'parent', { get: function() { return window; }, configurable: false });
+    Object.defineProperty(window, 'frameElement', { get: function() { return null; }, configurable: false });
+  } catch(e) {}
+  
+  // Spoof ad blocker detection
+  window.canRunAds = true;
+  window.adBlockEnabled = false;
+  window.adblockEnabled = false;
+  window.AdBlockEnabled = false;
+  
+  // Create fake ad elements for detection scripts
+  var fakeAd = document.createElement('div');
+  fakeAd.className = 'ad ads adsbox ad-banner';
+  fakeAd.id = 'ad-container';
+  fakeAd.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;';
+  fakeAd.innerHTML = '<div class="adsbygoogle"></div>';
+  document.addEventListener('DOMContentLoaded', function() {
+    document.body.appendChild(fakeAd);
+  });
+  
+  // Override common ad block detection methods
+  var origGetComputedStyle = window.getComputedStyle;
+  window.getComputedStyle = function(el) {
+    var result = origGetComputedStyle.apply(this, arguments);
+    if (el && (el.className || '').match(/ad|ads|adsbox|ad-banner|adsbygoogle/i)) {
+      return new Proxy(result, {
+        get: function(target, prop) {
+          if (prop === 'display') return 'block';
+          if (prop === 'visibility') return 'visible';
+          if (prop === 'height') return '1px';
+          if (prop === 'width') return '1px';
+          return typeof target[prop] === 'function' ? target[prop].bind(target) : target[prop];
+        }
+      });
+    }
+    return result;
+  };
+  
+  // Override fetch for ad-related checks
+  var origFetch = window.fetch;
+  window.fetch = function(url) {
+    if (typeof url === 'string' && url.match(/ads|adblock|pagead|doubleclick|googlesyndication/i)) {
+      return Promise.resolve(new Response('', { status: 200 }));
+    }
+    return origFetch.apply(this, arguments);
+  };
+  
+  // Override XMLHttpRequest for ad-related checks
+  var origXHROpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function(method, url) {
+    this._url = url;
+    return origXHROpen.apply(this, arguments);
+  };
+  var origXHRSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.send = function() {
+    if (this._url && typeof this._url === 'string' && this._url.match(/ads|adblock|pagead|doubleclick|googlesyndication/i)) {
+      Object.defineProperty(this, 'status', { value: 200 });
+      Object.defineProperty(this, 'readyState', { value: 4 });
+      Object.defineProperty(this, 'responseText', { value: '' });
+      if (this.onload) setTimeout(this.onload.bind(this), 0);
+      if (this.onreadystatechange) setTimeout(this.onreadystatechange.bind(this), 0);
+      return;
+    }
+    return origXHRSend.apply(this, arguments);
+  };
+  
+  // Prevent window.open from escaping
+  var origOpen = window.open;
+  window.open = function(url, target) {
+    if (url && typeof url === 'string') {
+      window.location.href = url;
+    }
+    return null;
+  };
+  
+  // Spoof navigator properties for bot detection
+  Object.defineProperty(navigator, 'webdriver', { get: function() { return false; } });
+  Object.defineProperty(navigator, 'plugins', { get: function() { return [1,2,3,4,5]; } });
+  Object.defineProperty(navigator, 'languages', { get: function() { return ['en-US', 'en']; } });
+})();
+</script>`;
+
+    // Insert the anti-detection script right after <head>
+    const headTag = $('head');
+    if (headTag.length) {
+      headTag.prepend(antiDetectionScript);
+    } else {
+      // If no head, prepend to html or body
+      const htmlTag = $('html');
+      if (htmlTag.length) {
+        htmlTag.prepend('<head>' + antiDetectionScript + '</head>');
+      }
+    }
 
     return $.html();
   };
