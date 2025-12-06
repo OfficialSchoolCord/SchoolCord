@@ -1,11 +1,35 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import http from "http";
+import https from "https";
 import axios from "axios";
 import * as cheerio from "cheerio";
 import OpenAI from "openai";
 import { fetchRequestSchema, loginSchema, registerSchema, defaultQuickApps, aiChatRequestSchema, userRoleSchema, sendChatMessageSchema, createServerSchema, createChannelSchema, sendChannelMessageSchema } from "@shared/schema";
 import type { ChatRoom, ChannelType } from "@shared/schema";
 import * as storage from "./storage";
+
+const _0xHttpAgent = new http.Agent({ keepAlive: true, maxSockets: 100, maxFreeSockets: 20, timeout: 60000, scheduling: 'fifo' });
+const _0xHttpsAgent = new https.Agent({ keepAlive: true, maxSockets: 100, maxFreeSockets: 20, timeout: 60000 });
+const _0xCache = new Map<string, { data: Buffer; contentType: string; timestamp: number }>();
+const _0xCacheMaxSize = 500;
+const _0xCacheTTL = 300000;
+const _0xCacheableTypes = /\.(js|css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|webp|ico|mp3|ogg|wav|wasm)$/i;
+const _0xCleanCache = () => {
+  const now = Date.now();
+  if (_0xCache.size > _0xCacheMaxSize) {
+    const entries = Array.from(_0xCache.entries());
+    entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+    const toRemove = entries.slice(0, entries.length - _0xCacheMaxSize + 50);
+    toRemove.forEach(([key]) => _0xCache.delete(key));
+  }
+  for (const [key, value] of _0xCache.entries()) {
+    if (now - value.timestamp > _0xCacheTTL) {
+      _0xCache.delete(key);
+    }
+  }
+};
+setInterval(_0xCleanCache, 60000);
 
 // SambaNova API client using OpenAI-compatible format
 function getAIClient(): OpenAI | null {
@@ -83,8 +107,8 @@ function requireModerator(req: any, res: any, next: any) {
   next();
 }
 
-const MAX_RESPONSE_SIZE = 5 * 1024 * 1024;
-const REQUEST_TIMEOUT = 15000;
+const MAX_RESPONSE_SIZE = 50 * 1024 * 1024;
+const REQUEST_TIMEOUT = 45000;
 
 const _0x7b = [0x5A, 0x3F, 0x7C, 0x2B, 0x6E];
 const _0x9c = (i: number) => _0x7b[i % _0x7b.length];
@@ -565,26 +589,46 @@ export async function registerRoutes(
       }
 
       const method = req.method.toLowerCase();
+      const isCacheable = method === 'get' && _0xCacheableTypes.test(decoded);
+      const cacheKey = decoded;
+
+      if (isCacheable && _0xCache.has(cacheKey)) {
+        const cached = _0xCache.get(cacheKey)!;
+        res.setHeader('Content-Type', cached.contentType);
+        res.setHeader('Cache-Control', 'public, max-age=31536000');
+        res.setHeader('X-Cache', 'HIT');
+        return res.send(cached.data);
+      }
+
       const axiosConfig: any = {
         method,
         url: decoded,
         timeout: REQUEST_TIMEOUT,
         maxContentLength: MAX_RESPONSE_SIZE,
+        maxBodyLength: MAX_RESPONSE_SIZE,
+        httpAgent: _0xHttpAgent,
+        httpsAgent: _0xHttpsAgent,
+        decompress: true,
         headers: {
           'User-Agent': _0xGetUA(),
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept': '*/*',
+          'Accept-Language': 'en-US,en;q=0.9',
           'Accept-Encoding': 'gzip, deflate, br',
           'DNT': '1',
           'Connection': 'keep-alive',
           'Upgrade-Insecure-Requests': '1',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-User': '?1',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
         },
         responseType: 'arraybuffer',
         validateStatus: () => true,
-        maxRedirects: 5,
+        maxRedirects: 10,
       };
 
-      // Forward request body for POST/PUT/PATCH
       if (['post', 'put', 'patch'].includes(method)) {
         if (req.body && Object.keys(req.body).length > 0) {
           axiosConfig.data = req.body;
@@ -593,9 +637,8 @@ export async function registerRoutes(
       }
 
       const response = await axios(axiosConfig);
-      const contentType = response.headers['content-type'] || 'text/html';
+      const contentType = response.headers['content-type'] || 'application/octet-stream';
       
-      // Handle redirects
       if ([301, 302, 303, 307, 308].includes(response.status) && response.headers.location) {
         const baseUrl = new URL(decoded);
         const redirectUrl = resolveUrl(response.headers.location, baseUrl);
@@ -604,7 +647,6 @@ export async function registerRoutes(
         }
       }
 
-      // For HTML content, rewrite URLs comprehensively
       if (contentType.includes('text/html')) {
         const html = Buffer.from(response.data).toString('utf-8');
         const baseUrl = new URL(decoded);
@@ -612,10 +654,10 @@ export async function registerRoutes(
         
         res.status(response.status);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('X-Cache', 'MISS');
         return res.send(rewrittenHtml);
       }
 
-      // For CSS content, rewrite url() references
       if (contentType.includes('text/css')) {
         let css = Buffer.from(response.data).toString('utf-8');
         const baseUrl = new URL(decoded);
@@ -626,21 +668,33 @@ export async function registerRoutes(
           }
           return match;
         });
+        const cssBuffer = Buffer.from(css);
+        if (isCacheable && cssBuffer.length < 2 * 1024 * 1024) {
+          _0xCache.set(cacheKey, { data: cssBuffer, contentType, timestamp: Date.now() });
+        }
         res.status(response.status);
         res.setHeader('Content-Type', contentType);
+        res.setHeader('Cache-Control', 'public, max-age=31536000');
+        res.setHeader('X-Cache', 'MISS');
         return res.send(css);
       }
       
-      // For other content types, pass through with original status
+      const responseData = Buffer.from(response.data);
+      if (isCacheable && responseData.length < 5 * 1024 * 1024) {
+        _0xCache.set(cacheKey, { data: responseData, contentType, timestamp: Date.now() });
+      }
+
       res.status(response.status);
       res.setHeader('Content-Type', contentType);
       
-      // Forward cache headers if present
-      if (response.headers['cache-control']) {
+      if (isCacheable) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000');
+      } else if (response.headers['cache-control']) {
         res.setHeader('Cache-Control', response.headers['cache-control']);
       }
       
-      return res.send(Buffer.from(response.data));
+      res.setHeader('X-Cache', 'MISS');
+      return res.send(responseData);
     } catch (error: any) {
       console.error('Proxy error:', error.message);
       return res.status(500).send(`
