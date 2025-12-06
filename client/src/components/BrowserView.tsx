@@ -1,7 +1,7 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { BrowserControls } from './BrowserControls';
 import { TabBar } from './TabBar';
-import { Loader2, AlertCircle, ExternalLink, Home } from 'lucide-react';
+import { Loader2, AlertCircle, ExternalLink, Home, Maximize2, Minimize2, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { BrowserTab } from '@shared/schema';
 
@@ -71,12 +71,41 @@ export function BrowserView({
   }, [url, onSearch]);
 
   const [proxyUrl, setProxyUrl] = useState<string>('');
+  const [zoomLevel, setZoomLevel] = useState<number>(100);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (url && !isSearch) {
       encodeProxyUrl(url).then(setProxyUrl);
     }
   }, [url, isSearch]);
+
+  const handleZoomIn = useCallback(() => {
+    setZoomLevel(prev => Math.min(prev + 10, 200));
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setZoomLevel(prev => Math.max(prev - 10, 50));
+  }, []);
+
+  const handleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   const openInNewTab = () => {
     if (isSearch && searchUrl) {
@@ -92,7 +121,8 @@ export function BrowserView({
 
   return (
     <div 
-      className="fixed inset-0 ml-16 flex flex-col z-30 animate-fade-in"
+      ref={containerRef}
+      className={`fixed inset-0 ${isFullscreen ? '' : 'ml-16'} flex flex-col z-30 animate-fade-in`}
       style={{
         background: 'rgba(0, 0, 0, 0.85)',
         backdropFilter: 'blur(20px)',
@@ -206,18 +236,54 @@ export function BrowserView({
                     </span>
                   )}
                 </div>
-                {isSearch && searchUrl && (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-md" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleZoomOut}
+                      className="h-7 w-7 text-white/70 hover:text-white"
+                      data-testid="button-zoom-out"
+                      disabled={zoomLevel <= 50}
+                    >
+                      <ZoomOut className="w-4 h-4" />
+                    </Button>
+                    <span className="text-sm text-white/70 min-w-[3rem] text-center" data-testid="text-zoom-level">
+                      {zoomLevel}%
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleZoomIn}
+                      className="h-7 w-7 text-white/70 hover:text-white"
+                      data-testid="button-zoom-in"
+                      disabled={zoomLevel >= 200}
+                    >
+                      <ZoomIn className="w-4 h-4" />
+                    </Button>
+                  </div>
                   <Button
                     variant="ghost"
-                    size="sm"
-                    onClick={openInNewTab}
-                    className="gap-2 text-white/70 hover:text-white"
-                    data-testid="button-open-external"
+                    size="icon"
+                    onClick={handleFullscreen}
+                    className="h-7 w-7 text-white/70 hover:text-white"
+                    data-testid="button-fullscreen"
                   >
-                    <span>Open in new tab</span>
-                    <ExternalLink className="w-3 h-3" />
+                    {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                   </Button>
-                )}
+                  {isSearch && searchUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={openInNewTab}
+                      className="gap-2 text-white/70 hover:text-white"
+                      data-testid="button-open-external"
+                    >
+                      <span>Open in new tab</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
             
@@ -225,6 +291,12 @@ export function BrowserView({
               <div 
                 className="flex-1 overflow-auto p-6"
                 data-testid="browser-content"
+                style={{
+                  transform: `scale(${zoomLevel / 100})`,
+                  transformOrigin: 'top left',
+                  width: `${10000 / zoomLevel}%`,
+                  height: `${10000 / zoomLevel}%`,
+                }}
               >
                 <div 
                   className="prose prose-invert prose-sm max-w-4xl mx-auto"
@@ -247,10 +319,16 @@ export function BrowserView({
                 </div>
               </div>
             ) : proxyUrl ? (
-              <div className="flex-1 relative">
+              <div className="flex-1 relative overflow-hidden">
                 <iframe
                   src={`/~s/${proxyUrl}`}
-                  className="w-full h-full border-0"
+                  className="border-0"
+                  style={{
+                    transform: `scale(${zoomLevel / 100})`,
+                    transformOrigin: 'top left',
+                    width: `${10000 / zoomLevel}%`,
+                    height: `${10000 / zoomLevel}%`,
+                  }}
                   sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
                   title={title || 'Web page'}
                 />
