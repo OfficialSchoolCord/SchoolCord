@@ -632,12 +632,38 @@ export async function registerRoutes(
     return $.html();
   };
 
+  // Catch-all for /~s/ without a parameter - return error page
+  app.all('/~s/', (req, res) => {
+    return res.status(400).send(`
+      <html>
+        <body style="background:#1a1a1a;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+          <div style="text-align:center;">
+            <h2>Invalid Request</h2>
+            <p style="color:#888;">No URL specified.</p>
+          </div>
+        </body>
+      </html>
+    `);
+  });
+
   // Hidden proxy - serve proxied content (supports all HTTP methods)
-  app.all('/~s/:d', async (req, res) => {
+  // Use wildcard to catch all paths under /~s/
+  app.all('/~s/*', async (req, res) => {
     try {
-      const decoded = _0x4d(req.params.d);
+      // Extract the encoded URL from the path (everything after /~s/)
+      const encodedUrl = req.params[0] || '';
+      const decoded = _0x4d(encodedUrl);
       if (!decoded || !isValidUrl(decoded)) {
-        return res.status(400).send('Invalid request');
+        return res.status(400).send(`
+          <html>
+            <body style="background:#1a1a1a;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+              <div style="text-align:center;">
+                <h2>Invalid Request</h2>
+                <p style="color:#888;">The requested URL could not be processed.</p>
+              </div>
+            </body>
+          </html>
+        `);
       }
 
       const method = req.method.toLowerCase();
