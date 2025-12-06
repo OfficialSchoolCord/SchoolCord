@@ -600,6 +600,9 @@ export async function registerRoutes(
         return res.send(cached.data);
       }
 
+      const targetUrl = new URL(decoded);
+      const targetOrigin = targetUrl.origin;
+      
       const axiosConfig: any = {
         method,
         url: decoded,
@@ -611,7 +614,7 @@ export async function registerRoutes(
         decompress: true,
         headers: {
           'User-Agent': _0xGetUA(),
-          'Accept': '*/*',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.9',
           'Accept-Encoding': 'gzip, deflate, br',
           'DNT': '1',
@@ -621,8 +624,12 @@ export async function registerRoutes(
           'Sec-Fetch-Mode': 'navigate',
           'Sec-Fetch-Site': 'none',
           'Sec-Fetch-User': '?1',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
+          'Sec-CH-UA': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+          'Sec-CH-UA-Mobile': '?0',
+          'Sec-CH-UA-Platform': '"Windows"',
+          'Referer': targetOrigin + '/',
+          'Origin': targetOrigin,
+          'Cache-Control': 'max-age=0',
         },
         responseType: 'arraybuffer',
         validateStatus: () => true,
@@ -650,6 +657,39 @@ export async function registerRoutes(
       if (contentType.includes('text/html')) {
         const html = Buffer.from(response.data).toString('utf-8');
         const baseUrl = new URL(decoded);
+        
+        // Check if the site returned an error page or blocked the request
+        const isBlockedOrError = response.status === 404 || response.status === 403 || 
+          (response.status >= 400 && html.length < 5000 && 
+           (html.includes('blocked') || html.includes('captcha') || html.includes('verify') ||
+            html.includes('access denied') || html.includes('403') || html.includes('404')));
+        
+        // For sites that block or return errors, try with different headers
+        if (isBlockedOrError && !req.query.retry) {
+          try {
+            const retryConfig = {
+              ...axiosConfig,
+              headers: {
+                ...axiosConfig.headers,
+                'Sec-Fetch-Site': 'same-origin',
+                'Sec-Fetch-Mode': 'same-origin',
+                'Cookie': `tt_webid=1234567890; tt_webid_v2=1234567890`,
+              }
+            };
+            const retryResponse = await axios(retryConfig);
+            if (retryResponse.status === 200 && retryResponse.data.length > html.length) {
+              const retryHtml = Buffer.from(retryResponse.data).toString('utf-8');
+              const rewrittenHtml = rewriteHtml(retryHtml, baseUrl);
+              res.status(200);
+              res.setHeader('Content-Type', 'text/html; charset=utf-8');
+              res.setHeader('X-Cache', 'RETRY');
+              return res.send(rewrittenHtml);
+            }
+          } catch (retryError) {
+            // Continue with original response if retry fails
+          }
+        }
+        
         const rewrittenHtml = rewriteHtml(html, baseUrl);
         
         res.status(response.status);
