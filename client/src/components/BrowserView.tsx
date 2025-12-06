@@ -1,7 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { BrowserControls } from './BrowserControls';
+import { TabBar } from './TabBar';
 import { Loader2, AlertCircle, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import type { BrowserTab } from '@shared/schema';
 
 interface BrowserViewProps {
   url: string;
@@ -19,6 +21,11 @@ interface BrowserViewProps {
   onClose: () => void;
   useProxy?: boolean;
   sessionId?: string | null;
+  tabs?: BrowserTab[];
+  activeTabId?: string | null;
+  onTabSelect?: (tabId: string) => void;
+  onTabClose?: (tabId: string) => void;
+  onNewTab?: () => void;
 }
 
 const _0x7b = [0x5A, 0x3F, 0x7C, 0x2B, 0x6E];
@@ -48,6 +55,11 @@ export function BrowserView({
   onClose,
   useProxy = true,
   sessionId,
+  tabs = [],
+  activeTabId = null,
+  onTabSelect = () => {},
+  onTabClose = () => {},
+  onNewTab = () => {},
 }: BrowserViewProps) {
   const [proxyUrl, setProxyUrl] = useState<string | null>(null);
   const [iframeLoading, setIframeLoading] = useState(false);
@@ -114,6 +126,13 @@ export function BrowserView({
       }}
       data-testid="browser-view"
     >
+      <TabBar
+        tabs={tabs}
+        activeTabId={activeTabId}
+        onTabSelect={onTabSelect}
+        onTabClose={onTabClose}
+        onNewTab={onNewTab}
+      />
       <BrowserControls
         url={url}
         canGoBack={canGoBack}

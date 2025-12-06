@@ -20,10 +20,6 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/~s/:encoded">{() => {
-        window.location.href = '/';
-        return null;
-      }}</Route>
       <Route component={NotFound} />
     </Switch>
   );

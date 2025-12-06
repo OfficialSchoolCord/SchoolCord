@@ -470,3 +470,23 @@ export const extendedNavItems = [
 ] as const;
 
 export type ExtendedNavItemId = typeof extendedNavItems[number]['id'] | 'chat' | 'leaderboard';
+
+// ==================== BROWSER TABS ====================
+
+export const browserTabSchema = z.object({
+  id: z.string(),
+  url: z.string(),
+  title: z.string(),
+  favicon: z.string().optional(),
+  isActive: z.boolean().default(false),
+});
+
+export type BrowserTab = z.infer<typeof browserTabSchema>;
+
+export const userTabsSchema = z.object({
+  userId: z.string(),
+  tabs: z.array(browserTabSchema),
+  lastUpdated: z.string(),
+});
+
+export type UserTabs = z.infer<typeof userTabsSchema>;

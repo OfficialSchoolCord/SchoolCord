@@ -2,7 +2,8 @@ import type {
   User, QuickApp, BlockedWebsite, HistoryItem, UserRole, ChatMessage, ChatRoom, Quest, UserQuestData,
   FriendRequest, FriendStatus, UserSettings, MessagePrivacy,
   DMThread, DMMessage,
-  Server, ServerMember, ServerRole, Channel, ChannelMessage, ChannelType, BotConfig, Announcement
+  Server, ServerMember, ServerRole, Channel, ChannelMessage, ChannelType, BotConfig, Announcement,
+  BrowserTab, UserTabs
 } from "@shared/schema";
 import { DEFAULT_QUESTS, QUEST_RESET_INTERVAL_MS, DAILY_QUEST_LIMIT } from "@shared/schema";
 import fs from 'fs';
@@ -452,6 +453,9 @@ export const storage = {
 
   // Admin PINs
   adminPins: new Map<string, string>(), // userId -> PIN
+
+  // Browser tabs
+  userTabs: new Map<string, UserTabs>(), // userId -> UserTabs
 };
 
 // Initialize admin user if needed
@@ -1882,4 +1886,21 @@ export function removeRoleFromMember(memberId: string, userId: string, roleId: s
     }
   }
   return { error: 'Member not found' };
+}
+
+// ==================== BROWSER TABS ====================
+
+export function getUserTabs(userId: string): BrowserTab[] {
+  const userTabs = storage.userTabs.get(userId);
+  return userTabs?.tabs || [];
+}
+
+export function saveUserTabs(userId: string, tabs: BrowserTab[]): UserTabs {
+  const userTabs: UserTabs = {
+    userId,
+    tabs,
+    lastUpdated: new Date().toISOString(),
+  };
+  storage.userTabs.set(userId, userTabs);
+  return userTabs;
 }

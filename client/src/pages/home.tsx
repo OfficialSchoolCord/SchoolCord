@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -21,7 +21,7 @@ import { AnnouncementDisplay } from '@/components/AnnouncementDisplay';
 import { GamesPanel } from '@/components/GamesPanel';
 import { useToast } from '@/hooks/use-toast';
 import { useBrowserSettings } from '@/hooks/use-browser-settings';
-import type { NavItemId, HistoryItem, FetchResponse, UserRole } from '@shared/schema';
+import type { NavItemId, HistoryItem, FetchResponse, UserRole, BrowserTab } from '@shared/schema';
 import { ServerNavSidebar } from '@/components/ServerNavSidebar';
 import { SearchBox } from '@/components/SearchBox';
 import { ServersPanel } from '@/components/ServersPanel';
@@ -29,8 +29,8 @@ import { DiscoveryPanel } from '@/components/DiscoveryPanel';
 import { FriendsPanel } from '@/components/FriendsPanel';
 import { DMChatPanel } from '@/components/DMChatPanel';
 import { useQuery } from '@tanstack/react-query';
-import { LoadingScreen } from '@/components/LoadingScreen'; // Assuming LoadingScreen component exists
-import { ServerInviteDialog } from '@/components/ServerInviteDialog'; // Assuming ServerInviteDialog component exists
+import { LoadingScreen } from '@/components/LoadingScreen';
+import { ServerInviteDialog } from '@/components/ServerInviteDialog';
 
 export default function Home() {
   const [activePanel, setActivePanel] = useState<NavItemId | null>('home');
@@ -53,6 +53,9 @@ export default function Home() {
   const [inviteServerId, setInviteServerId] = useState<string | null>(null);
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
   const [selectedDMThreadId, setSelectedDMThreadId] = useState<string | null>(null);
+  const [tabs, setTabs] = useState<BrowserTab[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const tabSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
   const { 
     privacyMode, 
@@ -90,13 +93,161 @@ export default function Home() {
     }
   };
 
+  const createNewTab = useCallback((): BrowserTab => {
+    return {
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      url: '',
+      title: 'New Tab',
+      isActive: true,
+    };
+  }, []);
+
+  const loadTabsFromStorage = useCallback(() => {
+    const savedTabs = localStorage.getItem('browserTabs');
+    if (savedTabs) {
+      try {
+        const parsed = JSON.parse(savedTabs);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setTabs(parsed);
+          const activeTab = parsed.find((t: BrowserTab) => t.isActive) || parsed[0];
+          setActiveTabId(activeTab.id);
+          return;
+        }
+      } catch (e) {
+        console.error('Failed to parse saved tabs:', e);
+      }
+    }
+    const newTab = createNewTab();
+    setTabs([newTab]);
+    setActiveTabId(newTab.id);
+  }, [createNewTab]);
+
+  const saveTabsToStorage = useCallback((tabsToSave: BrowserTab[]) => {
+    localStorage.setItem('browserTabs', JSON.stringify(tabsToSave));
+    
+    if (sessionId) {
+      if (tabSaveTimeoutRef.current) {
+        clearTimeout(tabSaveTimeoutRef.current);
+      }
+      tabSaveTimeoutRef.current = setTimeout(async () => {
+        try {
+          await fetch('/api/tabs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-session-id': sessionId,
+            },
+            body: JSON.stringify({ tabs: tabsToSave }),
+          });
+        } catch (error) {
+          console.error('Failed to save tabs to server:', error);
+        }
+      }, 1000);
+    }
+  }, [sessionId]);
+
+  const loadTabsFromServer = useCallback(async (sid: string) => {
+    try {
+      const response = await fetch('/api/tabs', {
+        headers: { 'x-session-id': sid },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.tabs && Array.isArray(data.tabs) && data.tabs.length > 0) {
+          setTabs(data.tabs);
+          const activeTab = data.tabs.find((t: BrowserTab) => t.isActive) || data.tabs[0];
+          setActiveTabId(activeTab.id);
+          localStorage.setItem('browserTabs', JSON.stringify(data.tabs));
+          return true;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load tabs from server:', error);
+    }
+    return false;
+  }, []);
+
+  useEffect(() => {
+    loadTabsFromStorage();
+  }, [loadTabsFromStorage]);
+
+  const handleNewTab = useCallback(() => {
+    const newTab = createNewTab();
+    const updatedTabs = tabs.map(t => ({ ...t, isActive: false }));
+    updatedTabs.push(newTab);
+    setTabs(updatedTabs);
+    setActiveTabId(newTab.id);
+    setCurrentUrl('');
+    setPageContent(null);
+    setPageTitle('');
+    setPageError(null);
+    setHistory([]);
+    setHistoryIndex(-1);
+    saveTabsToStorage(updatedTabs);
+  }, [tabs, createNewTab, saveTabsToStorage]);
+
+  const handleTabSelect = useCallback((tabId: string) => {
+    const selectedTab = tabs.find(t => t.id === tabId);
+    if (!selectedTab) return;
+    
+    const updatedTabs = tabs.map(t => ({ ...t, isActive: t.id === tabId }));
+    setTabs(updatedTabs);
+    setActiveTabId(tabId);
+    setCurrentUrl(selectedTab.url);
+    setPageTitle(selectedTab.title);
+    if (selectedTab.url) {
+      fetchMutation.mutate(selectedTab.url);
+    } else {
+      setPageContent(null);
+      setPageError(null);
+    }
+    saveTabsToStorage(updatedTabs);
+  }, [tabs, saveTabsToStorage]);
+
+  const handleTabClose = useCallback((tabId: string) => {
+    if (tabs.length <= 1) {
+      handleCloseBrowser();
+      return;
+    }
+    
+    const tabIndex = tabs.findIndex(t => t.id === tabId);
+    const newTabs = tabs.filter(t => t.id !== tabId);
+    
+    if (tabId === activeTabId) {
+      const newActiveIndex = Math.min(tabIndex, newTabs.length - 1);
+      newTabs[newActiveIndex] = { ...newTabs[newActiveIndex], isActive: true };
+      setActiveTabId(newTabs[newActiveIndex].id);
+      setCurrentUrl(newTabs[newActiveIndex].url);
+      setPageTitle(newTabs[newActiveIndex].title);
+      if (newTabs[newActiveIndex].url) {
+        fetchMutation.mutate(newTabs[newActiveIndex].url);
+      } else {
+        setPageContent(null);
+        setPageError(null);
+      }
+    }
+    
+    setTabs(newTabs);
+    saveTabsToStorage(newTabs);
+  }, [tabs, activeTabId, saveTabsToStorage]);
+
+  const updateCurrentTab = useCallback((url: string, title: string) => {
+    if (!activeTabId) return;
+    const updatedTabs = tabs.map(t => 
+      t.id === activeTabId ? { ...t, url, title } : t
+    );
+    setTabs(updatedTabs);
+    saveTabsToStorage(updatedTabs);
+  }, [tabs, activeTabId, saveTabsToStorage]);
+
   const handleAuthSuccess = (userData: any, newSessionId: string, isNewUser?: boolean) => {
     setUser(userData);
     setSessionId(newSessionId);
     localStorage.setItem('sessionId', newSessionId);
     setShowAuthModal(false);
 
-    // Show onboarding only for newly registered users
+    loadTabsFromServer(newSessionId);
+
     if (isNewUser) {
       setShowOnboarding(true);
     }
@@ -184,6 +335,14 @@ export default function Home() {
         setSearchUrl(data.searchUrl || null);
         setCurrentUrl(data.url);
 
+        if (activeTabId) {
+          const updatedTabs = tabs.map(t => 
+            t.id === activeTabId ? { ...t, url: data.url, title: data.title || data.url } : t
+          );
+          setTabs(updatedTabs);
+          saveTabsToStorage(updatedTabs);
+        }
+
         const newHistoryItem: HistoryItem = {
           id: Date.now().toString(),
           url: data.url,
@@ -193,7 +352,6 @@ export default function Home() {
         addToHistory(newHistoryItem);
         setVisitCount(prevCount => prevCount + 1);
 
-        // Check for level up
         if (data.levelUp && data.levelUp.newLevel > data.levelUp.oldLevel) {
           setLevelUpData(data.levelUp);
         }
@@ -543,6 +701,11 @@ export default function Home() {
               canGoBack={historyIndex > 0}
               canGoForward={historyIndex < history.length - 1}
               sessionId={sessionId}
+              tabs={tabs}
+              activeTabId={activeTabId}
+              onTabSelect={handleTabSelect}
+              onTabClose={handleTabClose}
+              onNewTab={handleNewTab}
             />
           )}
           {!selectedServerId && !showBrowser && activePanel === 'home' && (

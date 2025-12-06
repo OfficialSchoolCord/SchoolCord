@@ -1862,5 +1862,21 @@ export async function registerRoutes(
     });
   });
 
+  // ==================== BROWSER TABS API ====================
+
+  app.get("/api/tabs", requireAuth, (req: any, res) => {
+    const tabs = storage.getUserTabs(req.userId);
+    return res.json({ tabs });
+  });
+
+  app.post("/api/tabs", requireAuth, (req: any, res) => {
+    const { tabs } = req.body;
+    if (!Array.isArray(tabs)) {
+      return res.status(400).json({ error: 'Invalid tabs format' });
+    }
+    const userTabs = storage.saveUserTabs(req.userId, tabs);
+    return res.json({ success: true, tabs: userTabs.tabs });
+  });
+
   return httpServer;
 }
