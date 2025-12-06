@@ -45,10 +45,12 @@ async function _0xGetBrowser() {
   _0xBrowserLock.locked = true;
   try {
     if (!_0xBrowser || !_0xBrowser.isConnected()) {
+      const chromePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium';
       _0xBrowser = await _0xPup.launch({
         headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--disable-web-security', '--disable-features=IsolateOrigins,site-per-process', '--single-process'],
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--disable-web-security', '--disable-features=IsolateOrigins,site-per-process', '--single-process', '--no-zygote'],
+        executablePath: chromePath,
+        ignoreDefaultArgs: ['--enable-automation'],
       });
     }
     return _0xBrowser;
@@ -73,7 +75,7 @@ async function _0xStealthFetch(url: string, timeout = 30000): Promise<{ html: st
       (window as any).chrome = { runtime: {} };
     });
     const response = await page.goto(url, { waitUntil: 'networkidle2', timeout });
-    await page.waitForTimeout(2000);
+    await new Promise(r => setTimeout(r, 3000));
     const html = await page.content();
     return { html, status: response?.status() || 200 };
   } finally {

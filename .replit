@@ -4,6 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
+packages = ["glib", "nss", "nspr", "at-spi2-atk", "cups", "dbus", "libdrm", "expat", "xorg.libxcb", "xorg.libX11", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXext", "xorg.libXfixes", "xorg.libXrandr", "mesa", "alsa-lib", "pango", "cairo", "libxkbcommon", "gtk3", "atk", "at-spi2-core", "chromium"]
 
 [deployment]
 deploymentTarget = "autoscale"
@@ -13,10 +14,6 @@ run = ["npm", "run", "start"]
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 33733
-externalPort = 5000
 
 [[ports]]
 localPort = 35647
@@ -35,12 +32,12 @@ localPort = 37879
 externalPort = 3002
 
 [[ports]]
-localPort = 38611
-externalPort = 5173
-
-[[ports]]
 localPort = 39869
 externalPort = 4200
+
+[[ports]]
+localPort = 40271
+externalPort = 5000
 
 [env]
 PORT = "5000"
