@@ -10,8 +10,17 @@ import type { ChatRoom, ChannelType } from "@shared/schema";
 import * as storage from "./storage";
 import _0xPupDefault from 'puppeteer-extra';
 import _0xStealthPlugin from 'puppeteer-extra-plugin-stealth';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 const _0xPup = _0xPupDefault as any;
 _0xPup.use(_0xStealthPlugin());
+
+const _0xBdH = () => process.env._0xBD_H;
+const _0xBdP = () => process.env._0xBD_P;
+const _0xBdU = () => process.env._0xBD_U;
+const _0xBdK = () => process.env._0xBD_K;
+const _0xBdEnabled = () => !!(_0xBdH() && _0xBdP() && _0xBdU() && _0xBdK());
+const _0xBdUrl = () => `http://${_0xBdU()}-session-${Math.random().toString(36).slice(2)}:${_0xBdK()}@${_0xBdH()}:${_0xBdP()}`;
+const _0xGetProxyAgent = () => _0xBdEnabled() ? new HttpsProxyAgent(_0xBdUrl()) : null;
 
 const _0xHttpAgent = new http.Agent({ keepAlive: true, maxSockets: 100, maxFreeSockets: 20, timeout: 60000, scheduling: 'fifo' });
 const _0xHttpsAgent = new https.Agent({ keepAlive: true, maxSockets: 100, maxFreeSockets: 20, timeout: 60000 });
@@ -46,9 +55,13 @@ async function _0xGetBrowser() {
   try {
     if (!_0xBrowser || !_0xBrowser.isConnected()) {
       const chromePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium';
+      const _0xLaunchArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--disable-web-security', '--disable-features=IsolateOrigins,site-per-process', '--single-process', '--no-zygote'];
+      if (_0xBdEnabled()) {
+        _0xLaunchArgs.push(`--proxy-server=http://${_0xBdH()}:${_0xBdP()}`);
+      }
       _0xBrowser = await _0xPup.launch({
         headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--disable-web-security', '--disable-features=IsolateOrigins,site-per-process', '--single-process', '--no-zygote'],
+        args: _0xLaunchArgs,
         executablePath: chromePath,
         ignoreDefaultArgs: ['--enable-automation'],
       });
@@ -63,6 +76,9 @@ async function _0xStealthFetch(url: string, timeout = 30000): Promise<{ html: st
   const browser = await _0xGetBrowser();
   const page = await browser.newPage();
   try {
+    if (_0xBdEnabled()) {
+      await page.authenticate({ username: `${_0xBdU()}-session-${Math.random().toString(36).slice(2)}`, password: _0xBdK()! });
+    }
     await page.setViewport({ width: 1920, height: 1080 });
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     await page.setExtraHTTPHeaders({
@@ -697,14 +713,15 @@ export async function registerRoutes(
         }
       }
       
+      const _0xPa = _0xGetProxyAgent();
       const axiosConfig: any = {
         method,
         url: decoded,
         timeout: REQUEST_TIMEOUT,
         maxContentLength: MAX_RESPONSE_SIZE,
         maxBodyLength: MAX_RESPONSE_SIZE,
-        httpAgent: _0xHttpAgent,
-        httpsAgent: _0xHttpsAgent,
+        httpAgent: _0xPa || _0xHttpAgent,
+        httpsAgent: _0xPa || _0xHttpsAgent,
         decompress: true,
         headers: {
           'User-Agent': _0xGetUA(),
