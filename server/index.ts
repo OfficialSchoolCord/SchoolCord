@@ -60,6 +60,15 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialize database
+  try {
+    const { initializeDatabase } = await import('./db');
+    await initializeDatabase();
+  } catch (error) {
+    console.error('Failed to initialize database:', error);
+    console.log('Continuing with in-memory storage...');
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
