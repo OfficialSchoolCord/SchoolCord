@@ -276,6 +276,11 @@
   filter: drop-shadow(0 0 8px rgba(220, 38, 38, 0.6));
 }
 
+/* Active Icon Glow (always visible when applied) */
+.active-icon-glow {
+  filter: drop-shadow(0 0 8px rgba(220, 38, 38, 0.6));
+}
+
 /**
  * Using the elevate system.
  * Automatic contrast adjustment.
