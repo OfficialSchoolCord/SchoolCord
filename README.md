@@ -1,4 +1,5 @@
-# Schoolcord
+# Schoolcord V5.50 LATEST BETA UPDATE PROXY HAS SOME ISSUES AND PROXY IS BEING REALLY SLOW AND IF YOU GET A ERROR LIKE 404 DID YOU ADD THIS PAGE TO ROUTER?? SEND
+# schoolunloader@tutamail.com a email and provide a photo or any other errors ( REPORT THEM TO THE EMAIL PROVIDED )
 
 A powerful web browser and proxy application designed to bypass network restrictions at schools, workplaces, and other restricted environments.
 
